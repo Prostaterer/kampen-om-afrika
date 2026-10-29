@@ -608,17 +608,18 @@ const SB_URL = (window.SUPABASE_URL || '').trim().replace(/\/+$/, '').replace(/\
 const SB_KEY = (window.SUPABASE_KEY || '').trim();
 const SUPABASE = /^https:\/\/.+/.test(SB_URL) && SB_KEY.length > 20 && !SB_KEY.includes('LIM-INN');
 let LAGRINGSMODUS = SUPABASE ? 'delt' : (lokalLager ? 'lokal-faner' : 'lokal-vindu');
-let sisteFeil = null; // 'nett' | 'avvist'
+let sisteFeil = null, sisteFeilTekst = ''; // 'nett' | 'avvist'
 // Nye nøkler (sb_publishable_…) sendes bare som apikey; eldre JWT-nøkler (eyJ…) også som Bearer.
 const SB_HODER = { apikey: SB_KEY, 'Content-Type': 'application/json', ...(SB_KEY.startsWith('eyJ') ? { Authorization: `Bearer ${SB_KEY}` } : {}) };
 async function sb(sti, valg = {}) {
   for (let forsok = 0; forsok < 2; forsok++) {
     try {
       const r = await fetch(`${SB_URL}/rest/v1/${sti}`, { ...valg, headers: { ...SB_HODER, ...(valg.headers || {}) } });
-      if (r.ok) { sisteFeil = null; return r; }
-      sisteFeil = 'avvist'; console.error('Supabase', r.status, await r.text().catch(() => ''));
+      if (r.ok) { sisteFeil = null; sisteFeilTekst = ''; return r; }
+      const tekst = await r.text().catch(() => '');
+      sisteFeil = 'avvist'; sisteFeilTekst = `${r.status} ${tekst}`.slice(0, 300); console.error('Supabase', r.status, tekst);
       if (r.status < 500) return null;
-    } catch (e) { sisteFeil = 'nett'; console.error('Supabase', e); }
+    } catch (e) { sisteFeil = 'nett'; sisteFeilTekst = 'ingen kontakt'; console.error('Supabase', e); }
     if (forsok === 0) await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
   }
   return null;
@@ -932,17 +933,26 @@ async function startSpill(modus, kode, meta, rolleId) {
 }
 
 /* ---------- Synkronisering ---------- */
-let oppfriskerNaa = false;
+let oppfriskerNaa = false, oppfriskIgjen = null;
 async function oppfrisk(tvang) {
-  if (oppfriskerNaa) return; oppfriskerNaa = true;
-  try {
+  // Pågår en oppdatering allerede, kjøres en ny rett etterpå (i stedet for å hoppe over)
+  if (oppfriskerNaa) { oppfriskIgjen = (oppfriskIgjen || false) || !!tvang; return; }
+  oppfriskerNaa = true;
+  try { await oppfriskEn(tvang); }
+  finally {
+    oppfriskerNaa = false;
+    if (oppfriskIgjen !== null) { const t = oppfriskIgjen; oppfriskIgjen = null; await oppfrisk(t); }
+  }
+}
+async function oppfriskEn(tvang) {
+  {
     const meta = await hent(K.meta(app.kode)); if (!meta) return;
     const faseSkifte = tvang || !app.meta || meta.fase !== app.meta.fase || meta.runde !== app.meta.runde;
     const endret = faseSkifte || JSON.stringify(meta.poengTotal) !== JSON.stringify(app.meta.poengTotal);
     app.meta = meta;
     if (endret) {
       app.tilstand = await hent(K.tilstand(app.kode));
-      app.resultat = meta.fase === 'avsloering' || meta.fase === 'ferdig' ? await hent(K.resultat(app.kode, meta.fase === 'ferdig' ? meta.runde : meta.runde)) : null;
+      app.resultat = meta.fase === 'avsloering' || meta.fase === 'ferdig' ? await hent(K.resultat(app.kode, meta.runde)) : null;
       if (meta.fase !== 'ordre') { app.valgtEnhet = null; }
       if (['ordre','forhandling'].includes(meta.fase) && app.modus === 'elev') {
         const lagret = await hent(K.ordre(app.kode, meta.runde, app.rolle.id));
@@ -952,6 +962,10 @@ async function oppfrisk(tvang) {
       }
     }
     let noeNytt = endret;
+    if (!endret && (meta.fase === 'avsloering' || meta.fase === 'ferdig') && !app.resultat) {
+      app.resultat = await hent(K.resultat(app.kode, meta.runde));
+      if (app.resultat) noeNytt = true;
+    }
     if (meta.fase === 'avsloering') { const a = await hent(K.avsloering(app.kode)); if (JSON.stringify(a) !== JSON.stringify(app.avsl)) { app.avsl = a; noeNytt = true; } }
     if (!endret && ['ordre','forhandling'].includes(meta.fase) && app.modus === 'elev') {
       const lagret = await hent(K.ordre(app.kode, meta.runde, app.rolle.id));
@@ -980,7 +994,7 @@ async function oppfrisk(tvang) {
     const opptatt = (aktiv && ['SELECT','INPUT','TEXTAREA'].includes(aktiv.tagName) && aktiv.closest('#panel')) || (app.modus === 'elev' && app.velgerMaalFor);
     if (noeNytt && !(opptatt && !faseSkifte)) render();
     else if (noeNytt) app.utsattRender = true;
-  } finally { oppfriskerNaa = false; }
+  }
 }
 function tomAvtaler() { return { vennskapsavtaler:[], interessesfaerer:[], kolonier:[], suezSamtykke:[], baseInnpass:[], fellesOkkupasjon:[], sivilInnpass:[] }; }
 
@@ -1298,27 +1312,41 @@ async function avsluttSpill() {
 
 /* Avgjør runden: kjør regelmotoren på lærerens maskin og publiser resultatet */
 async function avgjoerRunden() {
-  const m = app.meta;
-  await oppfrisk(true); // hent siste ordre
-  const t = app.tilstand;
-  // Slå sammen ordre: offiserer/sivile først, diplomater overstyrer i regjeringsrunder
-  const alle = {};
-  Object.values(app.ordrer).filter(d => !d.rolle.endsWith('_dip')).forEach(d => d.ordrer.forEach(o => alle[o.enhetId] = o));
-  if (REGJERINGSRUNDER.includes(m.runde)) Object.values(app.ordrer).filter(d => d.rolle.endsWith('_dip')).forEach(d => d.ordrer.forEach(o => alle[o.enhetId] = o));
-  const ordrer = Object.values(alle);
-  const foer = {}; t.enheter.forEach(e => foer[e.id] = e.sted);
-  const res = MOTOR.avgjoerRunde(t, ordrer, app.avtaler || tomAvtaler());
-  const etter = {}; res.tilstand.enheter.forEach(e => etter[e.id] = e.sted);
-  const ordrerPerLand = {}; SPILLDATA.land.forEach(l => ordrerPerLand[l.id] = ordrer.filter(o => o.enhetId.startsWith(l.id + '_')));
-  SPILLDATA.land.forEach(l => m.poengTotal[l.id] += res.poeng[l.id].sum);
-  const resultat = { runde:m.runde, ordrerPerLand, hendelser:res.hendelser, poeng:res.poeng, foer, etter, avtaler:app.avtaler, poengTotal:{ ...m.poengTotal },
-    kontrollFoer:{ militaerKontroll:t.militaerKontroll, oekonomiskKontroll:t.oekonomiskKontroll, interessesfaerer:t.interessesfaerer, kolonier:t.kolonier } };
-  await lagre(K.resultat(app.kode, m.runde), resultat);
-  await lagre(K.tilstand(app.kode), res.tilstand);
-  await lagre(K.avsloering(app.kode), { runde:m.runde, steg:0 });
-  m.fase = 'avsloering'; m.faseStart = null;
-  await lagre(K.meta(app.kode), m);
-  await oppfrisk(true);
+  if (app.avgjoer) return; app.avgjoer = true;
+  const knapp = [...document.querySelectorAll('#panel button')].find(b => b.textContent.includes('avgjør runden'));
+  if (knapp) { knapp.disabled = true; knapp.textContent = 'Avgjør runden …'; }
+  try {
+    await oppfrisk(true); // hent siste ordre og avtaler
+    const m = JSON.parse(JSON.stringify(app.meta));
+    const t = app.tilstand;
+    if (!t || t.runde !== m.runde) return visAvgjoerFeil('Runden ser allerede ut til å være avgjort. Last siden på nytt.');
+    const alle = {};
+    Object.values(app.ordrer).filter(d => !d.rolle.endsWith('_dip')).forEach(d => d.ordrer.forEach(o => alle[o.enhetId] = o));
+    if (REGJERINGSRUNDER.includes(m.runde)) Object.values(app.ordrer).filter(d => d.rolle.endsWith('_dip')).forEach(d => d.ordrer.forEach(o => alle[o.enhetId] = o));
+    const ordrer = Object.values(alle);
+    const foer = {}; t.enheter.forEach(e => foer[e.id] = e.sted);
+    const res = MOTOR.avgjoerRunde(t, ordrer, app.avtaler || tomAvtaler());
+    const etter = {}; res.tilstand.enheter.forEach(e => etter[e.id] = e.sted);
+    const ordrerPerLand = {}; SPILLDATA.land.forEach(l => ordrerPerLand[l.id] = ordrer.filter(o => o.enhetId.startsWith(l.id + '_')));
+    SPILLDATA.land.forEach(l => m.poengTotal[l.id] += res.poeng[l.id].sum);
+    const resultat = JSON.parse(JSON.stringify({ runde:m.runde, ordrerPerLand, hendelser:res.hendelser, poeng:res.poeng, foer, etter, avtaler:app.avtaler || tomAvtaler(), poengTotal:{ ...m.poengTotal },
+      kontrollFoer:{ militaerKontroll:t.militaerKontroll, oekonomiskKontroll:t.oekonomiskKontroll, interessesfaerer:t.interessesfaerer, kolonier:t.kolonier } }));
+    // Resultatet lagres først; feiler det, er ingenting endret og læreren kan prøve igjen
+    if (!await lagre(K.resultat(app.kode, m.runde), resultat)) return visAvgjoerFeil('Resultatet ble ikke lagret. Ingenting er endret – trykk «avgjør runden» igjen.');
+    if (!await lagre(K.tilstand(app.kode), res.tilstand)) return visAvgjoerFeil('Kartet ble ikke oppdatert. Ingenting er endret – trykk «avgjør runden» igjen.');
+    await lagre(K.avsloering(app.kode), { runde:m.runde, steg:0 });
+    m.fase = 'avsloering'; m.faseStart = null;
+    if (!await lagre(K.meta(app.kode), m)) return visAvgjoerFeil('Runden er avgjort, men faseskiftet ble ikke lagret. Trykk «avgjør runden» igjen hvis siden ikke går videre.');
+    app.resultat = resultat; app.avsl = { runde:m.runde, steg:0 };
+    await oppfrisk(true);
+  } catch (e) {
+    console.error(e); visAvgjoerFeil('Noe gikk galt under avgjørelsen: ' + (e && e.message || e));
+  } finally { app.avgjoer = false; }
+}
+function visAvgjoerFeil(tekst) {
+  render();
+  const forklaring = sisteFeilTekst ? ` (Svar fra databasen: ${sisteFeilTekst})` : '';
+  document.getElementById('panel').prepend(el('div', { class:'feilboks' }, tekst + forklaring));
 }
 
 /* ====================== OFFENTLIGGJØRING ====================== */
