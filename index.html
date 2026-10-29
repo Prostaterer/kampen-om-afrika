@@ -75,6 +75,25 @@
   .by-klikk { cursor:pointer; }
   .stat-navn { font-family:Iowan Old Style, Georgia, serif; font-style:italic; font-size:11px; letter-spacing:.06em; fill:var(--afr); pointer-events:none; paint-order:stroke; stroke:var(--land); stroke-width:2.5px; opacity:.9; }
   .status:empty { display:none; }
+  #hjelp { position:fixed; inset:0; background:rgba(43,38,32,.45); z-index:50; display:flex; justify-content:center; align-items:flex-start; padding:max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); overflow:auto; }
+  .hjelp-innhold { background:var(--papir); border:1px solid var(--blekk); width:100%; max-width:720px; padding:16px 20px 20px; margin-top:4vh; }
+  .hjelp-topp { display:flex; gap:10px; align-items:center; flex-wrap:wrap; position:sticky; top:0; background:var(--papir); padding-bottom:10px; border-bottom:1px solid var(--linje); }
+  .hjelp-topp h2 { font-size:20px; margin-right:auto; }
+  .hjelp-topp input { flex:1 1 240px; }
+  .hjelp-art { border-bottom:1px solid var(--linje); padding:8px 0; }
+  .hjelp-art summary { font-family:Iowan Old Style, Georgia, serif; font-size:16px; cursor:pointer; padding:4px 0; }
+  .hjelp-art p, .hjelp-art ul, .hjelp-art ol, .hjelp-art table { margin:6px 0; font-size:14px; line-height:1.5; }
+  .hjelp-art ul, .hjelp-art ol { padding-left:20px; }
+  .hjelp-art .poengtabell { max-width:420px; }
+  .hjelpknapp { padding:4px 12px; font-size:13px; }
+  .landmaal { margin:14px 0 4px; }
+  .landmaal summary { cursor:pointer; font-family:Iowan Old Style, Georgia, serif; font-size:15px; }
+  .landmaal .kort { margin-top:8px; font-size:13px; line-height:1.45; }
+  .landmaal ul { padding-left:18px; margin-top:4px; }
+  .bonus-ok { color:var(--ok); } .bonus-nei { color:var(--blekk-svak); }
+  .fordeling-rad { display:flex; gap:8px; align-items:center; padding:3px 0; border-bottom:1px dotted var(--linje); font-size:13px; }
+  .fordeling-rad span { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .fordeling-rad select { flex:1.4; padding:3px 4px; font-size:12.5px; }
   .kart-tegn { position:absolute; top:10px; right:10px; background:rgba(239,231,214,.94); border:1px solid var(--linje); padding:7px 10px; font-size:12px; line-height:1.55; max-width:250px; }
   .kart-tegn .rute { display:inline-block; width:14px; height:10px; vertical-align:-1px; margin-right:5px; border:1px solid var(--blekk-svak); }
   .kart-tegn label { display:flex; gap:6px; align-items:center; margin-top:4px; padding-top:4px; border-top:1px solid var(--linje); color:var(--afr); font-size:12px; cursor:pointer; }
@@ -99,6 +118,12 @@
   <div class="startkort">
     <h1>Kampen om Afrika</h1>
     <div class="undertittel">En simulering av kappløpet om kolonier, 1884–1914 · etter B. Barker og R. Boden</div>
+    <details class="landmaal" id="intro-maal">
+      <summary>Om spillet og landenes mål</summary>
+      <p style="font-size:13px;line-height:1.5;margin-top:8px">Dere spiller Storbritannia, Frankrike og Tyskland i årene etter at Storbritannia okkuperte Egypt i 1882. Hvert land har diplomater, offiserer og ledere for sivile stasjoner. Det er landet med flest poeng som vinner. Kartet viser også afrikanske stater som fantes på denne tiden – de er ikke med i spillet, slik europeerne heller ikke regnet med dem.</p>
+      <div id="intro-land"></div>
+    </details>
+    <button class="sek bred" type="button" id="start-hjelp" style="margin:8px 0 12px">Slik spiller du – søkbar hjelp</button>
     <div class="fane">
       <button data-fane="elev" class="aktiv">Elev</button>
       <button data-fane="laerer">Lærer</button>
@@ -112,6 +137,7 @@
       <label>Ditt navn (eller stabens navn)</label>
       <input id="elev-navn" placeholder="Navn">
       <button class="bred" id="elev-videre">Finn spillet</button>
+      <div id="elev-venter" class="info skjult"></div>
       <div id="elev-roller" class="skjult">
         <label>Velg rolle — flere elever kan dele én rolle som «stab»</label>
         <div id="rolleliste"></div>
@@ -148,6 +174,7 @@
   <span class="merke" id="topp-rolle"></span>
   <span class="fase" id="topp-fase"></span>
   <span class="timer" id="topp-timer"></span>
+  <button class="sek hjelpknapp" type="button" id="topp-hjelp">Hjelp</button>
 </header>
 <main id="spill" class="skjult">
   <div id="kartflate">
@@ -677,6 +704,9 @@ const K = {
   tilstand: kode => `kampen:${kode}:tilstand`,
   spiller: (kode, rolle, klient) => `kampen:${kode}:spiller:${rolle}:${klient}`,
   spillere: kode => `kampen:${kode}:spiller:`,
+  deltaker: (kode, klient) => `kampen:${kode}:deltaker:${klient}`,
+  deltakere: kode => `kampen:${kode}:deltaker:`,
+  fordeling: kode => `kampen:${kode}:fordeling`,
   ordre: (kode, runde, rolle) => `kampen:${kode}:ordre:${runde}:${rolle}`,
   ordrer: (kode, runde) => `kampen:${kode}:ordre:${runde}:`,
   forslag: (kode, runde, land) => `kampen:${kode}:forslag:${runde}:${land}`,
@@ -770,6 +800,21 @@ const TERRITORIER = (() => {
   return ut;
 })();
 
+/* Delaunay-trekanter mellom byene: tre byer er naboer når ingen annen by ligger inni sirkelen gjennom dem */
+const TREKANTER = (() => {
+  const b = SPILLDATA.byer, ut = [];
+  for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) for (let k = j + 1; k < b.length; k++) {
+    const A = b[i], B = b[j], C = b[k];
+    const d = 2 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y)); if (Math.abs(d) < 1e-6) continue;
+    const a2 = A.x*A.x + A.y*A.y, b2 = B.x*B.x + B.y*B.y, c2 = C.x*C.x + C.y*C.y;
+    const ux = (a2 * (B.y - C.y) + b2 * (C.y - A.y) + c2 * (A.y - B.y)) / d, uy = (a2 * (C.x - B.x) + b2 * (A.x - C.x) + c2 * (B.x - A.x)) / d;
+    const r2 = (A.x - ux) ** 2 + (A.y - uy) ** 2;
+    if (b.some((p, n) => n !== i && n !== j && n !== k && (p.x - ux) ** 2 + (p.y - uy) ** 2 < r2 - 1e-6)) continue;
+    ut.push([A.id, B.id, C.id]);
+  }
+  return ut;
+})();
+
 /* ---------- Afrikanske stater ca. 1880–1890 (forenklet, omtrentlig utbredelse) ----------
    [navn, breddegrad, lengdegrad, radius nord–sør, radius øst–vest (grader), ev. plassering av navnet (bredde, lengde)] */
 const AFRIKANSKE_STATER = [
@@ -817,6 +862,7 @@ function tegnForklaring(svg) {
   rad('background:repeating-linear-gradient(45deg,var(--blekk-svak) 0 2px,transparent 2px 5px)', 'Økonomisk kontroll');
   rad('border:2px dashed var(--blekk-svak)', 'Interessesfære');
   rad('border:3px solid var(--blekk-svak)', 'Koloni');
+  rad('background:var(--blekk-svak);opacity:.85', 'Sammenhengende område (tre nabobyer)');
   const lab = document.createElement('label');
   const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = visStater; cb.id = `${svg.id}-vis-stater`;
   cb.addEventListener('change', () => { visStater = cb.checked; try { localStorage.setItem('kampen-vis-stater', visStater ? 'ja' : 'nei'); } catch (e) {} render(); });
@@ -892,6 +938,13 @@ function tegnKart(svg, opts) {
     if (sfaereAv[by.id]) gTerr.append(ny('path', { d, fill:'none', stroke:LAND[sfaereAv[by.id]].farge, 'stroke-width':3, 'stroke-dasharray':'7 5' }));
     if (koloniAv[by.id]) gTerr.append(ny('path', { d, fill:'none', stroke:LAND[koloniAv[by.id]].farge, 'stroke-width':4.5 }));
   });
+  // Sammenhengende områder: når tre nabobyer er under samme lands militære kontroll, fylles feltet mellom dem
+  if (tilstand) {
+    const eier = by => BY[by].base || tilstand.militaerKontroll?.[by] || null;
+    TREKANTER.forEach(([a, b, c]) => { const l = eier(a); if (l && eier(b) === l && eier(c) === l) {
+      const pa = BY[a], pb = BY[b], pc = BY[c];
+      gTerr.append(ny('path', { d:`M ${pa.x} ${pa.y} L ${pb.x} ${pb.y} L ${pc.x} ${pc.y} Z`, fill:LAND[l].farge, 'fill-opacity':.42, stroke:LAND[l].farge, 'stroke-width':1, 'stroke-opacity':.5 })); } });
+  }
   g0.append(gTerr, gStatNavn);
   g0.append(ny('path', { d:glatt(KYST.map(([a,b])=>P(a,b))), fill:'none', stroke:'var(--blekk)', 'stroke-width':2.2 }));
   const gN = P(33.6,11.8), gS = P(-35.4,19.2);
@@ -978,13 +1031,20 @@ function visLagringsstatus() {
     : '<strong>Begrenset testmodus.</strong> Databasen er ikke satt opp, og nettleseren tillater ikke lagring, så spillet finnes bare i dette vinduet.';
 }
 visLagringsstatus();
+setTimeout(function fyllIntro() {
+  const boks = document.getElementById('intro-land'); if (!boks) return;
+  SPILLDATA.land.forEach(l => { const m = LANDMAAL[l.id];
+    boks.append(el('div', { class:`kort ${KORT[l.id]}` }, el('strong', { style:`color:${l.farge}` }, l.navn), el('div', {}, m.kort), el('ul', {}, ...m.punkter.map(p => el('li', {}, p))))); });
+}, 0);
+document.getElementById('start-hjelp').addEventListener('click', () => visHjelp());
+document.getElementById('topp-hjelp').addEventListener('click', () => visHjelp());
 
 $('#nytt-spill').addEventListener('click', async () => {
   const pin = $('#ny-pin').value.trim();
   if (pin.length < 4) return feil('PIN må ha minst fire tegn.');
   const kode = lagKode();
   const meta = { kode, pin, fase:'lobby', runde:1, faseStart:null, varighet:{ forhandling:300, ordre:300 }, maksRunder:10,
-                 poengTotal:{ storbritannia:0, frankrike:0, tyskland:0 }, opprettet:Date.now() };
+                 poengTotal:{ storbritannia:0, frankrike:0, tyskland:0 }, opprettet:Date.now(), rollevalg:'laerer', bonuser:bonusInnstillinger(null) };
   const ok1 = await lagre(K.meta(kode), meta), ok2 = await lagre(K.tilstand(kode), MOTOR.nyTilstand());
   if (!ok1 || !ok2) return feil(skrivefeil());
   startSpill('laerer', kode, meta);
@@ -1008,6 +1068,9 @@ $('#elev-videre').addEventListener('click', async () => {
   const meta = await hent(K.meta(kode));
   if (!meta) return feil(ikkeFunnet());
   app.navn = navn; app.kode = kode; app.meta = meta;
+  // Samme maskin får samme id ved ny innlasting, så rollen ikke går tapt
+  try { const k = localStorage.getItem(`kampen-klient-${kode}`); if (k) app.klient = k; else localStorage.setItem(`kampen-klient-${kode}`, app.klient); } catch (e) {}
+  if ((meta.rollevalg || 'fritt') === 'laerer') return meldPaa();
   const liste = $('#rolleliste'); liste.innerHTML = '';
   const opptatt = {};
   for (const k of await nokler(K.spillere(kode))) { const d = await hent(k); if (d) (opptatt[d.rolle] ??= []).push(d.navn); }
@@ -1020,6 +1083,24 @@ $('#elev-videre').addEventListener('click', async () => {
   });
   vis('#elev-roller', true);
 });
+async function meldPaa() {
+  const ok = await lagre(K.deltaker(app.kode, app.klient), { klient:app.klient, navn:app.navn, tid:Date.now() });
+  if (!ok) return feil(skrivefeil());
+  $('#start-feil').classList.add('skjult');
+  const venter = $('#elev-venter'); venter.classList.remove('skjult');
+  venter.textContent = `Du er påmeldt som ${app.navn}. Vent litt – læreren fordeler rollene, og du kommer inn automatisk.`;
+  $('#elev-videre').disabled = true;
+  const sjekk = async () => {
+    const ford = await hent(K.fordeling(app.kode));
+    const rolle = ford?.[app.klient];
+    if (rolle && ROLLE[rolle]) {
+      clearInterval(app.venteteller);
+      await lagre(K.spiller(app.kode, rolle, app.klient), { rolle, navn:app.navn, tid:Date.now() });
+      startSpill('elev', app.kode, app.meta, rolle);
+    }
+  };
+  clearInterval(app.venteteller); app.venteteller = setInterval(sjekk, 3000); sjekk();
+}
 async function velgRolle(rolleId) {
   const ok = await lagre(K.spiller(app.kode, rolleId, app.klient), { rolle:rolleId, navn:app.navn, tid:Date.now() });
   if (!ok) return feil(skrivefeil());
@@ -1072,6 +1153,25 @@ async function oppfriskEn(tvang) {
       }
     }
     let noeNytt = endret;
+    if (app.modus === 'elev' && (meta.rollevalg || 'fritt') === 'laerer') {
+      const ford = await hent(K.fordeling(app.kode));
+      const ny = ford?.[app.klient];
+      if (ny && ROLLE[ny] && ny !== app.rolle.id) {
+        app.rolle = ROLLE[ny]; app.ordreListe = []; app.valgtEnhet = null; app.velgerMaalFor = null; app.forslag = [];
+        $('#topp-rolle').textContent = `${app.rolle.navn} · ${app.navn}`;
+        await lagre(K.spiller(app.kode, ny, app.klient), { rolle:ny, navn:app.navn, tid:Date.now() });
+        const lagret = await hent(K.ordre(app.kode, meta.runde, ny)); app.ordreListe = lagret?.ordrer || [];
+        if (app.rolle.type === 'diplomat') app.forslag = (await hent(K.forslag(app.kode, meta.runde, app.rolle.land))) || [];
+        noeNytt = true; app.rolleByttet = true;
+      }
+    }
+    if (app.modus === 'laerer') {
+      const deltakere = {};
+      for (const k of await nokler(K.deltakere(app.kode))) { const d = await hent(k); if (d) deltakere[d.klient] = d; }
+      const ford = (await hent(K.fordeling(app.kode))) || {};
+      if (JSON.stringify([deltakere, ford]) !== JSON.stringify([app.deltakere, app.fordeling])) noeNytt = true;
+      app.deltakere = deltakere; app.fordeling = ford;
+    }
     if (!endret && (meta.fase === 'avsloering' || meta.fase === 'ferdig') && !app.resultat) {
       app.resultat = await hent(K.resultat(app.kode, meta.runde));
       if (app.resultat) noeNytt = true;
@@ -1180,6 +1280,15 @@ function renderElev() {
       : app.rolle.type === 'militaer' ? 'Du leder to militære enheter. Stå-ordre gir militær kontroll. Husk: i rundene 5, 6, 9 og 10 må du følge regjeringens ordre.'
       : 'Du leder én sivil stasjon. Stå-ordre gir økonomisk kontroll. Du kan ikke støtte andre.')));
 
+  if (app.rolleByttet) { panel.append(el('div', { class:'varsel' }, `Læreren har gitt deg en ny rolle: ${app.rolle.navn}.`)); app.rolleByttet = false; }
+  { const lm = LANDMAAL[app.rolle.land];
+    const bon = Object.entries(BONUSER).filter(([id, b]) => b.land === app.rolle.land && bonusInnstillinger(m)[id].paa);
+    panel.append(el('details', { class:'landmaal' }, el('summary', {}, `${LAND[app.rolle.land].navn}s mål`),
+      el('div', { class:`kort ${KORT[app.rolle.land]}` }, el('strong', {}, lm.kort), el('ul', {}, ...lm.punkter.map(p => el('li', {}, p))),
+        ...bon.map(([id, b]) => { const st = bonusStatus(t, id); return el('div', { style:'margin-top:6px' },
+          el('strong', { class: st.oppnaadd ? 'bonus-ok' : '' }, `Bonus: ${b.navn} (${bonusInnstillinger(m)[id].poeng} poeng per runde)${st.oppnaadd ? ' – oppnådd!' : ''}`),
+          el('div', { style:'font-size:12px' }, b.regel), el('div', { style:'font-size:12px;margin-top:2px' }, st.tekst)); }),
+        el('button', { class:'liten sek', style:'margin-top:8px', onclick: () => visHjelp(LAND[app.rolle.land].navn) }, 'Se poengtabellene for landet ditt')))); }
   if (REGJERINGSRUNDER.includes(m.runde) && m.fase !== 'lobby')
     panel.append(el('div', { class:'varsel' }, `Runde ${m.runde}: regjeringskontroll. Diplomatenes ordre til militære enheter går foran offiserenes.`));
 
@@ -1295,6 +1404,162 @@ function poengTabell(total, runde) {
   return tab;
 }
 
+/* ====================== LANDENES MÅL, BONUSER OG HJELP ====================== */
+
+/* Landenes mål – bygger på rivaliseringene i heftet (s. 2–3) og poengtabellene (s. 16–18) */
+const LANDMAAL = {
+  storbritannia: {
+    kort: 'Sikre Egypt, Nilen og sjøveien til India – og helst et sammenhengende belte fra Kapp til Kairo.',
+    punkter: [
+      'Nilen er nøkkelen: Fashoda og Kampala gir 10 poeng hver i militær kontroll, Khartoum og Juba 4.',
+      'Vest-Afrika lønner seg også: Accra (6), Lagos og Sokoto (4) militært, og Accra, Lagos og Sierra Leone (6) i handel.',
+      'Gullet i Johannesburg og havnen i Mombasa gir 6 poeng i økonomisk kontroll.',
+      'Rivaler: Frankrike om Nilen (Fashoda), Tyskland om Øst-Afrika (Kampala).',
+      'Du kontrollerer Suezkanalen. Samtykke til å bruke den er et sterkt forhandlingskort.'
+    ]
+  },
+  frankrike: {
+    kort: 'Bygge et sammenhengende Nord- og Vest-Afrika, og nå Nilen før britene.',
+    punkter: [
+      'Fes (Marokko) og Fashoda (Nilen) gir 10 poeng hver i militær kontroll, Djibouti 6.',
+      'Nord-Afrika henger sammen med basen i Alger: Oran og Oujda gir 4 poeng hver i militær kontroll.',
+      'Handel lønner seg i Accra, Djibouti, Libreville, Sokoto og Tunis (6 poeng hver).',
+      'Rivaler: Storbritannia om Nilen (Fashoda), Tyskland om Marokko (Fes).',
+      'Militære enheter trenger britisk samtykke for å bruke Suezkanalen.'
+    ]
+  },
+  tyskland: {
+    kort: 'Kom sent til kappløpet og vil ha «en plass i solen» – særlig i Marokko og Øst-Afrika.',
+    punkter: [
+      'Fes og Kampala gir 10 poeng hver i militær kontroll, Agadir 6.',
+      'Handel lønner seg i Benghazi, Luanda, Tanger, Tripoli og Ujiji (6 poeng hver).',
+      'Diplomati lønner seg ekstra: en vennskapsavtale gir Tyskland 12 poeng per runde, de andre bare 6. Kolonier gir derimot bare 6.',
+      'Rivaler: Storbritannia om Øst-Afrika (Kampala), Frankrike om Marokko (Fes).',
+      'Militære enheter trenger britisk samtykke for å bruke Suezkanalen.'
+    ]
+  }
+};
+
+/* Bonuser – poeng per runde så lenge målet er oppnådd. Læreren kan slå av eller endre verdiene. */
+const BONUS_REGIONER = {
+  nord: { navn: 'Nord-Afrika', byer: ['tanger','fes','oujda','oran','agadir','ain_salah','tunis','tripoli','benghazi','aswan'] },
+  vest: { navn: 'Vest-Afrika', byer: ['saint_louis','ft_gouraud','tombouctou','sierra_leone','accra','lagos','sokoto','enugu','libreville'] },
+  oest: { navn: 'Øst-Afrika', byer: ['khartoum','fashoda','gondar','djibouti','juba','kampala','nakuru','nairobi','mombasa','tabora','dodoma','ujiji'] },
+  soer: { navn: 'Sørlige Afrika', byer: ['luanda','kamina','lusaka','bulaweyo','johannesburg'] }
+};
+const NORD_AFRIKA_FR = ['fes','oujda','oran','tunis'];
+const BONUSER = {
+  kappKairo: { land:'storbritannia', navn:'Fra Kapp til Kairo', standard:20,
+    regel:'Storbritannia har en sammenhengende landvei fra Kairo til Cape Town der hver by langs veien er under britisk militær kontroll (basene teller med).' },
+  nordAfrika: { land:'frankrike', navn:'Fransk Nord-Afrika', standard:10,
+    regel:'Frankrike har militær kontroll over Fes, Oujda, Oran og Tunis samtidig (sammen med basen i Alger).' },
+  fireRetninger: { land:'tyskland', navn:'Handel i alle fire retninger', standard:10,
+    regel:'Tyskland har økonomisk kontroll over minst én by i hver av de fire regionene Nord-, Vest-, Øst- og Sørlige Afrika (basene teller ikke).' }
+};
+function bonusInnstillinger(meta) {
+  const ut = {};
+  for (const [id, b] of Object.entries(BONUSER)) {
+    const lagret = meta?.bonuser?.[id];
+    ut[id] = { paa: lagret ? lagret.paa !== false : true, poeng: lagret && Number.isFinite(+lagret.poeng) ? +lagret.poeng : b.standard };
+  }
+  return ut;
+}
+function harMil(t, land, by) { return BY[by]?.base === land || t.militaerKontroll?.[by] === land; }
+function harOko(t, land, by) { return !BY[by]?.base && (t.oekonomiskKontroll?.[by] || []).includes(land); }
+/* Status for ett bonusmål: { oppnaadd, tekst } – tekst brukes i elevens panel */
+function bonusStatus(t, id) {
+  if (!t) return { oppnaadd:false, tekst:'' };
+  if (id === 'kappKairo') {
+    // Bredde-først-søk langs veiene, bare gjennom byer under britisk militær kontroll
+    const sett = new Set(['kairo']), ko = ['kairo'];
+    while (ko.length) { const by = ko.shift(); for (const nb of MOTOR.naboer[by] || []) if (!sett.has(nb) && harMil(t, 'storbritannia', nb)) { sett.add(nb); ko.push(nb); } }
+    const ok = sett.has('cape_town');
+    return { oppnaadd: ok, tekst: ok ? 'Sammenhengende fra Kairo til Cape Town.' : `Fra Kairo når du ${sett.size - 1} by(er) sammenhengende sørover – ennå ikke Cape Town.` };
+  }
+  if (id === 'nordAfrika') {
+    const har = NORD_AFRIKA_FR.filter(by => harMil(t, 'frankrike', by));
+    return { oppnaadd: har.length === NORD_AFRIKA_FR.length, tekst: `${har.length} av ${NORD_AFRIKA_FR.length}: ${NORD_AFRIKA_FR.map(by => (har.includes(by) ? '✔ ' : '✗ ') + BY[by].navn).join(', ')}` };
+  }
+  if (id === 'fireRetninger') {
+    const del = Object.values(BONUS_REGIONER).map(r => ({ navn:r.navn, ok: r.byer.some(by => harOko(t, 'tyskland', by)) }));
+    return { oppnaadd: del.every(d => d.ok), tekst: del.map(d => (d.ok ? '✔ ' : '✗ ') + d.navn).join(', ') };
+  }
+  return { oppnaadd:false, tekst:'' };
+}
+/* Legger oppnådde bonuser til rundens poeng. Returnerer liste over utløste bonuser. */
+function leggTilBonuser(t, poeng, meta) {
+  const inn = bonusInnstillinger(meta), utlost = [];
+  for (const [id, b] of Object.entries(BONUSER)) {
+    if (!inn[id].paa || !inn[id].poeng) continue;
+    if (!bonusStatus(t, id).oppnaadd) continue;
+    const p = poeng[b.land];
+    p.bonus = (p.bonus || 0) + inn[id].poeng;
+    p.sum += inn[id].poeng;
+    p.detaljer.push(`bonus «${b.navn}»: ${inn[id].poeng}`);
+    utlost.push({ id, land:b.land, navn:b.navn, poeng:inn[id].poeng });
+  }
+  return utlost;
+}
+
+/* ---------- Hjelpesiden ---------- */
+function hjelpArtikler() {
+  const P = SPILLDATA.poeng, inn = bonusInnstillinger(app.meta);
+  const nv = id => BY[id]?.navn || id;
+  const tabell = (land, type) => {
+    const spes = Object.entries(P[type][land] || {}).sort((a, b) => b[1] - a[1]);
+    return `<table class="poengtabell"><tr><th>By</th><th>Poeng per runde</th></tr>${spes.map(([by, p]) => `<tr><td>${nv(by)}</td><td>${p}</td></tr>`).join('')}<tr><td><em>Alle andre byer</em></td><td>${P[type].standard}</td></tr></table>`;
+  };
+  const A = P.avtaler;
+  const art = [];
+  art.push({ tittel:'Hvem vinner?', tekst:'<p>Det er <strong>landet</strong> med flest poeng totalt som vinner, ikke enkeltpersoner. Poeng får dere ved å kontrollere byer og ved å inngå avtaler. Basene gir aldri poeng.</p>' });
+  art.push({ tittel:'Slik går en runde', tekst:'<ol><li><strong>Forhandlinger:</strong> alle kan snakke med alle. Diplomatene kan sende inn avtaler.</li><li><strong>Skriving av ordre:</strong> full stillhet. Hver stab klikker inn ordre for sine enheter.</li><li><strong>Offentliggjøring:</strong> læreren leser ordrene høyt og storskjermen viser hva som skjer. Fortsatt stille.</li></ol><p>Prat etter at tiden er ute kan gi landet minuspoeng. Ordre som ikke er levert, eller som er ugyldige, regnes som «ingen ordre».</p>' });
+  art.push({ tittel:'Rollene', tekst:'<p><strong>Diplomater</strong> forhandler. Bare avtaler mellom diplomater er bindende. I rundene 5, 6, 9 og 10 er det regjeringskontroll: da går diplomatenes ordre til de militære enhetene foran offiserenes.</p><p><strong>Offiserer</strong> leder to militære enheter. En enhet som blir stående i en by, gir militær kontroll.</p><p><strong>Sivile stasjoner</strong> (handel og misjon) gir økonomisk kontroll når de blir stående. De kan ikke støtte andre.</p>' });
+  art.push({ tittel:'Hvordan tar jeg kontroll over en by?', tekst:'<p>Flytt en enhet til byen i én runde, og gi den ordren <strong>«Stå»</strong> i runden etter. Militære enheter gir militær kontroll, sivile stasjoner gir økonomisk kontroll.</p><p>Kontrollen varer til en annen makt blir stående i byen – også om du selv flytter videre. Kontrollerte byer gir poeng hver runde.</p>' });
+  art.push({ tittel:'Kan jeg kaste ut en fiende som står i en by?', tekst:'<p>Nei. En enhet som blir stående i en by, kan ikke tvinges ut, uansett hvor mange som angriper. Byer vinnes ved å komme først, ved å vente til den andre flytter videre, eller ved å forhandle.</p><p>Det kan være høyst to militære enheter i en by, og de må være fra samme land – med mindre en vennskapsavtale sier noe annet.</p>' });
+  art.push({ tittel:'Hva skjer når to land flytter til samme by?', tekst:'<p>Har det ene landet flere enheter på vei inn, vinner det. Er styrkene like, teller støtte fra enheter som blir stående i nærliggende byer. Er det fortsatt likt, blir det «stopp-opp», og alle returnerer dit de kom fra. Til havs blir det aldri stopp-opp.</p>' });
+  art.push({ tittel:'Hvordan får jeg en koloni?', tekst:`<p>En koloni gir både militær og økonomisk kontroll over byene <strong>resten av spillet</strong>, og en bonus i runden den undertegnes: Storbritannia og Frankrike ${A.koloni.storbritannia} poeng, Tyskland ${A.koloni.tyskland}.</p><p>Vilkår:</p><ul><li>Kolonien består av 1–2 byer ved en avtale mellom to land, eller opptil 4 byer ved en avtale mellom alle tre.</li><li>Hver by må ha direkte vei til minst én annen by i kolonien. Baser kan ikke være med.</li><li>Landet må ha <strong>to militære enheter i samme by</strong> og <strong>minst én sivil stasjon</strong> i kolonien i avtalerunden.</li><li>Ingen andre lands enheter eller stasjoner kan være i byene.</li></ul><p>Slik gjør dere det: Diplomatene blir enige, og <em>begge</em> sender inn avtalen under «Avtaler og tillatelser» (velg «Koloni»). Læreren godkjenner. Er vilkårene ikke oppfylt når runden avgjøres, blir avtalen ugyldig.</p>` });
+  art.push({ tittel:'Hvordan får jeg en interessesfære?', tekst:`<p>En interessesfære gir økonomisk kontroll over 1–2 nærliggende byer resten av spillet, og ${A.interessesfaere.bonusVedSignering} poeng i bonus i runden den undertegnes.</p><ul><li>Landet må ha en sivil stasjon i minst én av byene.</li><li>Ingen andre lands stasjoner eller kontroll kan være i byene. Baser kan ikke være med.</li><li>Begge lands diplomater sender inn avtalen, og læreren godkjenner.</li></ul>` });
+  art.push({ tittel:'Vennskapsavtaler', tekst:`<p>En vennskapsavtale gir poeng hver runde den gjelder: Storbritannia ${A.vennskapsavtale.storbritannia}, Frankrike ${A.vennskapsavtale.frankrike}, Tyskland ${A.vennskapsavtale.tyskland}. Hvert land kan inngå én vennskapsavtale per runde. Avtalen kan også inneholde forpliktelser, for eksempel militær støtte eller felles okkupasjon av en by.</p>` });
+  art.push({ tittel:'Baser og Suezkanalen', tekst:'<p>Hvert land har to baser. Ingen andre kan gå inn i en base uten skriftlig tillatelse fra diplomaten til landet som eier den, og basene kan aldri kontrolleres av andre. De gir heller ikke poeng.</p><p>Franske og tyske militære enheter trenger britisk samtykke for å bruke Suezkanalen. Uten samtykke må de rundt Kapp, som tar fire runder. Sivile stasjoner bruker kanalen fritt.</p>' });
+  art.push({ tittel:'Sjøveien', tekst:'<p>Fra en havneby kan en enhet flytte ut i havområdet byen ligger ved, og runden etter inn til en annen havneby ved samme havområde. Mellom det vestlige og østlige havområdet går det én runde. Til havs blir det aldri stopp-opp.</p>' });
+  for (const l of SPILLDATA.land) {
+    const m = LANDMAAL[l.id];
+    art.push({ tittel:`${l.navn}s mål`, tekst:`<p><strong>${m.kort}</strong></p><ul>${m.punkter.map(p => `<li>${p}</li>`).join('')}</ul>` });
+    art.push({ tittel:`Poeng for ${l.navn}: militær kontroll`, tekst: tabell(l.id, 'militaerKontroll') });
+    art.push({ tittel:`Poeng for ${l.navn}: økonomisk kontroll`, tekst: tabell(l.id, 'oekonomiskKontroll') });
+  }
+  art.push({ tittel:'Poeng for avtaler', tekst:`<table class="poengtabell"><tr><th>Avtale</th><th>Storbritannia</th><th>Frankrike</th><th>Tyskland</th></tr><tr><td>Vennskapsavtale (per runde)</td><td>${A.vennskapsavtale.storbritannia}</td><td>${A.vennskapsavtale.frankrike}</td><td>${A.vennskapsavtale.tyskland}</td></tr><tr><td>Interessesfære (én gang)</td><td>${A.interessesfaere.bonusVedSignering}</td><td>${A.interessesfaere.bonusVedSignering}</td><td>${A.interessesfaere.bonusVedSignering}</td></tr><tr><td>Koloni (én gang)</td><td>${A.koloni.storbritannia}</td><td>${A.koloni.frankrike}</td><td>${A.koloni.tyskland}</td></tr></table>` });
+  const bonusRader = Object.entries(BONUSER).map(([id, b]) => `<li><strong>${b.navn}</strong> (${LAND[b.land].navn}): ${inn[id].paa ? `<strong>${inn[id].poeng} poeng per runde</strong>` : '<em>slått av i dette spillet</em>'}. ${b.regel}</li>`).join('');
+  const regioner = Object.values(BONUS_REGIONER).map(r => `<li><strong>${r.navn}:</strong> ${r.byer.map(nv).join(', ')}</li>`).join('');
+  art.push({ tittel:'Bonuser', tekst:`<p>Bonusene gis hver runde så lenge målet er oppnådd.</p><ul>${bonusRader}</ul><p>Regionene i Tysklands bonus:</p><ul>${regioner}</ul>` });
+  return art;
+}
+function visHjelp(sok = '') {
+  let boks = document.getElementById('hjelp');
+  if (!boks) {
+    boks = el('div', { id:'hjelp', role:'dialog', 'aria-modal':'true', 'aria-label':'Hjelp' },
+      el('div', { class:'hjelp-innhold' },
+        el('div', { class:'hjelp-topp' },
+          el('h2', {}, 'Hjelp'),
+          el('input', { id:'hjelp-sok', type:'search', placeholder:'Søk, for eksempel «koloni», «Fes» eller «Suez»', 'aria-label':'Søk i hjelpen' }),
+          el('button', { class:'sek', id:'hjelp-lukk', onclick: () => boks.classList.add('skjult') }, 'Lukk')),
+        el('div', { id:'hjelp-liste' })));
+    document.body.append(boks);
+    boks.addEventListener('click', e => { if (e.target === boks) boks.classList.add('skjult'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') boks.classList.add('skjult'); });
+    boks.querySelector('#hjelp-sok').addEventListener('input', e => fyllHjelp(e.target.value));
+  }
+  boks.classList.remove('skjult');
+  const felt = boks.querySelector('#hjelp-sok'); felt.value = sok; fyllHjelp(sok); felt.focus();
+}
+function fyllHjelp(sok) {
+  const liste = document.getElementById('hjelp-liste'); liste.innerHTML = '';
+  const ord = sok.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const treff = hjelpArtikler().filter(a => { const tekst = (a.tittel + ' ' + a.tekst.replace(/<[^>]+>/g, ' ')).toLowerCase(); return ord.every(o => tekst.includes(o)); });
+  if (!treff.length) { liste.append(el('p', { class:'merke', style:'padding:12px 0' }, `Ingen treff på «${sok}». Prøv et annet ord, for eksempel «poeng» eller «avtale».`)); return; }
+  treff.forEach((a, i) => liste.append(el('details', { class:'hjelp-art', ...(ord.length || i < 2 ? { open:'' } : {}) }, el('summary', {}, a.tittel), el('div', { html:a.tekst }))));
+}
+
 /* ====================== LÆRER ====================== */
 function renderLaerer() {
   const m = app.meta, panel = $('#panel'); panel.innerHTML = '';
@@ -1306,12 +1571,20 @@ function renderLaerer() {
   // Fasestyring
   panel.append(el('h2', {}, `Runde ${m.runde} av ${m.maksRunder}`));
   if (m.fase === 'lobby') {
-    panel.append(el('div', { class:'info' }, el('strong', {}, `Spillkode: ${m.kode}`), ' — elevene skriver koden inn og velger rolle. Storskjermen bruker samme kode.'));
-    panel.append(el('h2', {}, 'Påmeldte'));
-    SPILLDATA.land.forEach(l => {
-      panel.append(el('h3', { style:`color:${l.farge};margin-top:8px;font-size:14px` }, l.navn));
-      ROLLER.filter(r=>r.land===l.id).forEach(r => panel.append(el('div', { style:'font-size:13px;padding:2px 0' }, `${r.navn}: `, el('span', { style: app.spillere?.[r.id] ? '' : 'color:var(--feil)' }, app.spillere?.[r.id]?.join(', ') || 'ingen'))));
-    });
+    const laererFordeler = (m.rollevalg || 'fritt') === 'laerer';
+    panel.append(el('div', { class:'info' }, el('strong', {}, `Spillkode: ${m.kode}`), laererFordeler ? ' — elevene skriver inn koden og navnet sitt. Du fordeler rollene under.' : ' — elevene skriver inn koden og velger rolle selv. Storskjermen bruker samme kode.'));
+    panel.append(el('label', { style:'display:flex;gap:8px;align-items:center;color:var(--blekk)' },
+      el('input', { type:'checkbox', id:'rollevalg-fritt', style:'width:auto', ...(laererFordeler ? {} : { checked:'' }), onchange: async ev => { m.rollevalg = ev.target.checked ? 'fritt' : 'laerer'; await lagre(K.meta(app.kode), m); renderLaerer(); } }),
+      'La elevene velge rolle selv'));
+    if (laererFordeler) panel.append(fordelingPanel(true));
+    else {
+      panel.append(el('h2', {}, 'Påmeldte'));
+      SPILLDATA.land.forEach(l => {
+        panel.append(el('h3', { style:`color:${l.farge};margin-top:8px;font-size:14px` }, l.navn));
+        ROLLER.filter(r=>r.land===l.id).forEach(r => panel.append(el('div', { style:'font-size:13px;padding:2px 0' }, `${r.navn}: `, el('span', { style: app.spillere?.[r.id] ? '' : 'color:var(--feil)' }, app.spillere?.[r.id]?.join(', ') || 'ingen'))));
+      });
+    }
+    panel.append(bonusPanel());
     panel.append(el('label', {}, 'Antall runder (6–10)'), el('input', { type:'number', min:6, max:10, value:m.maksRunder, onchange: async ev => { m.maksRunder = Math.min(10, Math.max(6, +ev.target.value||10)); await lagre(K.meta(app.kode), m); } }));
     panel.append(el('div', { class:'rad' }, el('div', {}, el('label', {}, 'Forhandling (min)'), el('input', { type:'number', min:1, max:20, value:m.varighet.forhandling/60, onchange: async ev => { m.varighet.forhandling = (+ev.target.value||5)*60; await lagre(K.meta(app.kode), m); } })), el('div', {}, el('label', {}, 'Ordre (min)'), el('input', { type:'number', min:1, max:20, value:m.varighet.ordre/60, onchange: async ev => { m.varighet.ordre = (+ev.target.value||5)*60; await lagre(K.meta(app.kode), m); } }))));
     panel.append(el('button', { class:'bred', onclick: () => settFase('forhandling') }, 'Start runde 1: forhandlinger'));
@@ -1324,6 +1597,7 @@ function renderLaerer() {
     return;
   }
 
+  if ((m.rollevalg || 'fritt') === 'laerer' && m.fase !== 'ferdig') panel.append(el('details', { style:'margin-bottom:8px' }, el('summary', { style:'cursor:pointer;font-size:13px' }, 'Roller og elever (endre fordeling)'), fordelingPanel(false)));
   if (REGJERINGSRUNDER.includes(m.runde)) panel.append(el('div', { class:'varsel' }, `Runde ${m.runde}: regjeringskontroll — diplomatenes ordre til militære enheter går foran offiserenes (s. 9, 14–15).`));
 
   if (m.fase === 'forhandling') {
@@ -1389,6 +1663,58 @@ function renderLaerer() {
   panel.append(poengTabell(m.poengTotal, null));
   if (m.fase !== 'avsloering') panel.append(justerPoeng());
 }
+/* Rollefordeling: diplomatene først, så offiserer, så sivile – runde for runde, slik at alle roller fylles jevnt */
+const ROLLE_REKKEFOLGE = [...ROLLER.filter(r => r.type === 'diplomat'), ...ROLLER.filter(r => r.type === 'militaer'), ...ROLLER.filter(r => r.type === 'sivil')].map(r => r.id);
+function fordelAutomatisk(alle) {
+  const ford = alle ? {} : { ...(app.fordeling || {}) };
+  const ledige = Object.keys(app.deltakere || {}).filter(k => alle || !ford[k]);
+  for (let i = ledige.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ledige[i], ledige[j]] = [ledige[j], ledige[i]]; }
+  const antall = {}; ROLLE_REKKEFOLGE.forEach(r => antall[r] = 0);
+  Object.values(ford).forEach(r => { if (r in antall) antall[r]++; });
+  ledige.forEach(k => { const min = Math.min(...Object.values(antall)); const r = ROLLE_REKKEFOLGE.find(x => antall[x] === min); ford[k] = r; antall[r]++; });
+  return ford;
+}
+async function lagreFordeling(ford) {
+  if (!await lagre(K.fordeling(app.kode), ford)) return visAvgjoerFeil('Fordelingen ble ikke lagret. Prøv igjen.');
+  app.fordeling = ford; renderLaerer();
+}
+function fordelingPanel(stor) {
+  const boks = el('div');
+  const deltakere = Object.values(app.deltakere || {}).sort((a, b) => a.navn.localeCompare(b.navn, 'nb'));
+  const ford = app.fordeling || {};
+  const uten = deltakere.filter(d => !ford[d.klient]).length;
+  if (stor) boks.append(el('h2', {}, `Påmeldte elever (${deltakere.length})`));
+  boks.append(el('div', { class:'rad', style:'margin:6px 0' },
+    el('button', { class:'liten', disabled: uten ? null : '', onclick: () => lagreFordeling(fordelAutomatisk(false)) }, uten ? `Fordel ${uten} nye automatisk` : 'Alle har rolle'),
+    el('button', { class:'liten sek', disabled: deltakere.length ? null : '', onclick: () => lagreFordeling(fordelAutomatisk(true)) }, 'Fordel alle på nytt')));
+  if (!deltakere.length) boks.append(el('div', { class:'merke', style:'padding:6px 0' }, 'Ingen påmeldt ennå. Elevene skriver inn spillkoden og navnet sitt.'));
+  deltakere.forEach(d => {
+    const sel = el('select', { 'aria-label':`Rolle for ${d.navn}`, onchange: ev => { const ny = { ...(app.fordeling || {}) }; if (ev.target.value) ny[d.klient] = ev.target.value; else delete ny[d.klient]; lagreFordeling(ny); } },
+      el('option', { value:'' }, '– ingen rolle –'),
+      ...SPILLDATA.land.map(l => { const g = document.createElement('optgroup'); g.label = l.navn; ROLLER.filter(r => r.land === l.id).forEach(r => g.append(el('option', { value:r.id, ...(ford[d.klient] === r.id ? { selected:'' } : {}) }, r.navn))); return g; }));
+    boks.append(el('div', { class:'fordeling-rad' }, el('span', {}, d.navn), sel));
+  });
+  // Oversikt per rolle
+  const perRolle = {}; Object.entries(ford).forEach(([k, r]) => (perRolle[r] ??= []).push(app.deltakere?.[k]?.navn || '?'));
+  const tomme = ROLLER.filter(r => !perRolle[r.id]);
+  boks.append(el('div', { class: tomme.length ? 'varsel' : 'info', style:'font-size:12.5px' }, tomme.length ? `${tomme.length} av ${ROLLER.length} roller står uten elev: ${tomme.map(r => `${LAND[r.land].navn} – ${r.navn}`).join('; ')}.` : 'Alle 15 roller har minst én elev.'));
+  return boks;
+}
+function bonusPanel() {
+  const m = app.meta, inn = bonusInnstillinger(m);
+  const boks = el('details', { style:'margin-top:10px;font-size:13px' }, el('summary', { style:'cursor:pointer' }, 'Bonuser (poeng per runde)'));
+  Object.entries(BONUSER).forEach(([id, b]) => {
+    const oppd = async (endring) => { m.bonuser = { ...inn, [id]: { ...inn[id], ...endring } }; await lagre(K.meta(app.kode), m); };
+    boks.append(el('div', { class:'kort', style:'margin-top:6px' },
+      el('label', { style:'display:flex;gap:8px;align-items:center;color:var(--blekk);margin-top:0' },
+        el('input', { type:'checkbox', style:'width:auto', ...(inn[id].paa ? { checked:'' } : {}), onchange: ev => oppd({ paa: ev.target.checked }) }),
+        el('strong', {}, `${b.navn} – ${LAND[b.land].navn}`)),
+      el('div', { style:'font-size:12px;margin:4px 0' }, b.regel),
+      el('div', { class:'rad' }, el('span', { style:'flex:0 0 auto' }, 'Poeng per runde:'),
+        el('input', { type:'number', min:0, max:100, value:inn[id].poeng, style:'max-width:80px', onchange: ev => oppd({ poeng: Math.max(0, Math.min(100, +ev.target.value || 0)) }) }))));
+  });
+  return boks;
+}
 function godkjenn(f) {
   const a = app.avtaler;
   if (f.type === 'vennskap') a.vennskapsavtaler.push({ land:f.land, tekst:f.tekst });
@@ -1438,8 +1764,9 @@ async function avgjoerRunden() {
     const res = MOTOR.avgjoerRunde(t, ordrer, app.avtaler || tomAvtaler());
     const etter = {}; res.tilstand.enheter.forEach(e => etter[e.id] = e.sted);
     const ordrerPerLand = {}; SPILLDATA.land.forEach(l => ordrerPerLand[l.id] = ordrer.filter(o => o.enhetId.startsWith(l.id + '_')));
+    const bonuser = leggTilBonuser(res.tilstand, res.poeng, m);
     SPILLDATA.land.forEach(l => m.poengTotal[l.id] += res.poeng[l.id].sum);
-    const resultat = JSON.parse(JSON.stringify({ runde:m.runde, ordrerPerLand, hendelser:res.hendelser, poeng:res.poeng, foer, etter, avtaler:app.avtaler || tomAvtaler(), poengTotal:{ ...m.poengTotal },
+    const resultat = JSON.parse(JSON.stringify({ runde:m.runde, ordrerPerLand, hendelser:res.hendelser, poeng:res.poeng, bonuser, foer, etter, avtaler:app.avtaler || tomAvtaler(), poengTotal:{ ...m.poengTotal },
       kontrollFoer:{ militaerKontroll:t.militaerKontroll, oekonomiskKontroll:t.oekonomiskKontroll, interessesfaerer:t.interessesfaerer, kolonier:t.kolonier } }));
     // Resultatet lagres først; feiler det, er ingenting endret og læreren kan prøve igjen
     if (!await lagre(K.resultat(app.kode, m.runde), resultat)) return visAvgjoerFeil('Resultatet ble ikke lagret. Ingenting er endret – trykk «avgjør runden» igjen.');
@@ -1484,6 +1811,7 @@ function byggSteg(r) {
     const fremhev = new Set([...h.matchAll(/\b([a-z_]+)\b/g)].map(x => x[1]).filter(x => BY[x] || SJOPOS[x]));
     steg.push({ overskrift:'Avgjørelse', tekst:pentHendelseR(h, r), posisjoner:{ ...pos }, fremhev, piler:[] });
   });
+  if (r.bonuser?.length) steg.push({ overskrift:'Bonuser', tekst: r.bonuser.map(b => `${LAND[b.land].navn} oppnår «${b.navn}» og får ${b.poeng} bonuspoeng.`).join(' '), posisjoner:r.etter, piler:[], poeng:true });
   const oppsummering = SPILLDATA.land.map(l => `${l.navn}: ${r.poeng[l.id].sum} poeng denne runden (totalt ${r.poengTotal[l.id]})`).join(' · ');
   steg.push({ overskrift:`Poeng etter runde ${r.runde}`, tekst:oppsummering, posisjoner:r.etter, piler:[], poeng:true });
   return steg;
