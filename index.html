@@ -688,7 +688,7 @@ const app = {
 const $ = s => document.querySelector(s);
 const el = (tag, attrs={}, ...barn) => {
   const e = document.createElement(tag);
-  for (const [k,v] of Object.entries(attrs)) { if (k==='class') e.className=v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (k==='html') e.innerHTML=v; else e.setAttribute(k,v); }
+  for (const [k,v] of Object.entries(attrs)) { if (v == null || v === false) continue; if (k==='class') e.className=v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (k==='html') e.innerHTML=v; else e.setAttribute(k,v); }
   barn.flat().forEach(b => b != null && e.append(b.nodeType ? b : document.createTextNode(String(b))));
   return e;
 };
@@ -1248,7 +1248,7 @@ function renderLaerer() {
   if (m.fase === 'avsloering') {
     const steg = byggSteg(app.resultat), i = app.avsl?.steg ?? 0;
     panel.append(el('div', { class:'info' }, 'Offentliggjøring på storskjermen. Les gjerne ordrene høyt slik originalen legger opp til — elevene skal være helt stille.'));
-    panel.append(el('div', { class:'kort' }, el('div', { class:'merke' }, `Steg ${i+1} av ${steg.length}`), el('div', { style:'margin-top:4px' }, steg[i]?.tekst || '')));
+    panel.append(el('div', { class:'kort' }, el('div', { class:'merke' }, `Steg ${i+1} av ${steg.length}${steg[i]?.overskrift ? ' · ' + steg[i].overskrift : ''}`), el('div', { style:'margin-top:4px' }, steg[i]?.tekst || '')));
     panel.append(el('div', { class:'rad' },
       el('button', { class:'sek', disabled: i<=0 ? '' : null, onclick: () => settSteg(i-1) }, '← Forrige'),
       el('button', { disabled: i>=steg.length-1 ? '' : null, onclick: () => settSteg(i+1) }, 'Neste →')));
