@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ================================================================
+     INNSTILLINGER – lim inn verdiene fra Supabase her
+     (Project Settings → API: «Project URL» og «anon public» key)
+     ================================================================ -->
+<script>
+  window.SUPABASE_URL = 'https://zvwrykmxrvpmzjbofpfw.supabase.co';
+  window.SUPABASE_KEY = 'sb_publishable_wa3fHuaACVMEjMudpMHiNQ_kRrepPmf';
+</script>
+<title>Kampen om Afrika</title>
+<style>
+  :root {
+    --papir:#EFE7D6; --papir-dyp:#E4D9C2; --land:#EAE0C9; --vann-flate:#CFDAD6;
+    --blekk:#2B2620; --blekk-svak:#6B6153; --vann:#6E8A8A; --linje:#C9BCA2;
+    --gb:#B03A2E; --fr:#1F618D; --de:#1C2833; --ok:#3E7C4A; --varsel:#B07D2B; --feil:#A94438;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html, body { height:100%; }
+  body { background:var(--papir); color:var(--blekk); font-family:"Avenir Next","Segoe UI",system-ui,sans-serif; font-size:15px; display:flex; flex-direction:column; }
+  h1,h2,h3 { font-family:Iowan Old Style, Georgia, serif; font-weight:600; letter-spacing:.03em; }
+  header { padding:10px 18px; border-bottom:2px solid var(--blekk); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:19px; }
+  .merke { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--blekk-svak); }
+  .kode { font-family:ui-monospace, Menlo, monospace; font-size:20px; letter-spacing:.2em; background:var(--blekk); color:var(--papir); padding:2px 10px; }
+  .fase { padding:3px 10px; border:1px solid var(--blekk); font-size:13px; }
+  .timer { font-family:ui-monospace, Menlo, monospace; font-size:22px; font-variant-numeric:tabular-nums; margin-left:auto; }
+  .timer.ute { color:var(--feil); }
+  main { flex:1; display:flex; min-height:0; }
+  #kartflate { flex:1; min-width:0; position:relative; background:var(--vann-flate); }
+  #kartflate svg { width:100%; height:100%; display:block; }
+  aside { width:380px; border-left:1px solid var(--linje); background:var(--papir-dyp); padding:14px 16px; overflow-y:auto; font-size:13.5px; line-height:1.45; }
+  aside h2 { font-size:14px; letter-spacing:.07em; text-transform:uppercase; margin:16px 0 6px; border-bottom:1px solid var(--linje); padding-bottom:3px; }
+  aside h2:first-child { margin-top:0; }
+  .kort { background:var(--papir); border:1px solid var(--linje); padding:10px 12px; margin-bottom:8px; }
+  .kort.valgt { border-color:var(--blekk); box-shadow:0 0 0 2px var(--blekk) inset; }
+  .kort.gb { border-left:5px solid var(--gb); } .kort.fr { border-left:5px solid var(--fr); } .kort.de { border-left:5px solid var(--de); }
+  button { font:inherit; background:var(--blekk); color:var(--papir); border:none; padding:8px 14px; cursor:pointer; letter-spacing:.02em; }
+  button.sek { background:transparent; color:var(--blekk); border:1px solid var(--blekk); }
+  button.liten { padding:4px 9px; font-size:12.5px; }
+  button.bred { width:100%; margin-top:8px; }
+  button:disabled { opacity:.45; cursor:default; }
+  button:focus-visible { outline:3px solid var(--vann); outline-offset:2px; }
+  input, select { font:inherit; padding:6px 8px; border:1px solid var(--blekk-svak); background:var(--papir); color:var(--blekk); width:100%; }
+  label { display:block; font-size:12.5px; color:var(--blekk-svak); margin-top:8px; }
+  .rad { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .rad > * { flex:1; }
+  .status { position:absolute; left:12px; bottom:10px; background:rgba(239,231,214,.94); border:1px solid var(--linje); padding:6px 12px; font-size:13px; max-width:60%; }
+  .varsel { background:#F3E7C9; border-left:4px solid var(--varsel); padding:8px 10px; margin:8px 0; font-size:13px; }
+  .info { background:#E3E9E3; border-left:4px solid var(--ok); padding:8px 10px; margin:8px 0; font-size:13px; }
+  .feilboks { background:#F0D9D4; border-left:4px solid var(--feil); padding:8px 10px; margin:8px 0; font-size:13px; }
+  .liste-stram { list-style:none; padding:0; } .liste-stram li { padding:4px 0; border-bottom:1px dotted var(--linje); }
+  .poengtabell { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  .poengtabell td, .poengtabell th { padding:4px 6px; text-align:right; border-bottom:1px solid var(--linje); }
+  .poengtabell td:first-child, .poengtabell th:first-child { text-align:left; }
+  .landflekk { display:inline-block; width:10px; height:10px; margin-right:6px; vertical-align:middle; }
+  .fane { display:flex; gap:0; margin-bottom:10px; }
+  .fane button { flex:1; background:transparent; color:var(--blekk); border:1px solid var(--blekk); }
+  .fane button.aktiv { background:var(--blekk); color:var(--papir); }
+  #start { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .startkort { max-width:520px; width:100%; background:var(--papir-dyp); border:1px solid var(--linje); padding:28px; }
+  .startkort h1 { font-size:28px; margin-bottom:4px; }
+  .startkort .undertittel { color:var(--blekk-svak); margin-bottom:20px; font-size:14px; }
+  .skjult { display:none !important; }
+  /* Storskjerm */
+  #skjerm { flex:1; display:flex; flex-direction:column; min-height:0; }
+  #skjerm .avsl-tekst { padding:14px 26px; font-family:Iowan Old Style, Georgia, serif; font-size:26px; line-height:1.3; border-top:2px solid var(--blekk); min-height:96px; background:var(--papir-dyp); }
+  #skjerm .avsl-tekst small { display:block; font-family:"Avenir Next","Segoe UI",system-ui,sans-serif; font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--blekk-svak); margin-bottom:6px; }
+  .by-navn { font-family:Iowan Old Style, Georgia, serif; font-size:11.5px; fill:var(--blekk); pointer-events:none; paint-order:stroke; stroke:var(--land); stroke-width:3px; }
+  .hav-etikett { font-family:Iowan Old Style, Georgia, serif; font-size:15px; letter-spacing:.24em; fill:var(--vann); text-transform:uppercase; pointer-events:none; }
+  .grense-etikett { font-size:10px; letter-spacing:.12em; fill:var(--blekk-svak); text-transform:uppercase; }
+  .by-klikk { cursor:pointer; }
+  .maal { cursor:pointer; }
+  @keyframes puls { 0%{r:9} 50%{r:14} 100%{r:9} }
+  .fremhev { animation:puls 1.2s infinite; }
+  @media (max-width:820px) {
+    main { flex-direction:column; }
+    #kartflate { min-height:46vh; }
+    aside { width:100%; border-left:none; border-top:1px solid var(--linje); max-height:54vh; }
+    #skjerm .avsl-tekst { font-size:18px; }
+    .timer { font-size:18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ START ============ -->
+<section id="start">
+  <div class="startkort">
+    <h1>Kampen om Afrika</h1>
+    <div class="undertittel">En simulering av kappløpet om kolonier, 1884–1914 · etter B. Barker og R. Boden</div>
+    <div class="fane">
+      <button data-fane="elev" class="aktiv">Elev</button>
+      <button data-fane="laerer">Lærer</button>
+      <button data-fane="skjerm">Storskjerm</button>
+    </div>
+    <div id="lagring-varsel" class="varsel skjult"></div>
+
+    <div id="fane-elev">
+      <label>Spillkode (fra læreren)</label>
+      <input id="elev-kode" maxlength="4" placeholder="f.eks. KWMT" autocapitalize="characters">
+      <label>Ditt navn (eller stabens navn)</label>
+      <input id="elev-navn" placeholder="Navn">
+      <button class="bred" id="elev-videre">Finn spillet</button>
+      <div id="elev-roller" class="skjult">
+        <label>Velg rolle — flere elever kan dele én rolle som «stab»</label>
+        <div id="rolleliste"></div>
+      </div>
+    </div>
+
+    <div id="fane-laerer" class="skjult">
+      <div class="rad">
+        <div><label>Nytt spill: lærer-PIN</label><input id="ny-pin" type="password" placeholder="4+ tegn"></div>
+        <div><label>&nbsp;</label><button class="bred" id="nytt-spill" style="margin-top:0">Opprett spill</button></div>
+      </div>
+      <p class="merke" style="margin:14px 0 4px">eller fortsett et spill</p>
+      <div class="rad">
+        <div><label>Spillkode</label><input id="laerer-kode" maxlength="4" autocapitalize="characters"></div>
+        <div><label>PIN</label><input id="laerer-pin" type="password"></div>
+      </div>
+      <button class="bred sek" id="laerer-inn">Logg inn som lærer</button>
+    </div>
+
+    <div id="fane-skjerm" class="skjult">
+      <label>Spillkode</label>
+      <input id="skjerm-kode" maxlength="4" autocapitalize="characters">
+      <button class="bred" id="skjerm-inn">Vis storskjerm</button>
+      <p style="margin-top:10px;font-size:13px;color:var(--blekk-svak)">Storskjermen viser felleskartet, timeren og offentliggjøringen av ordrene — beregnet på prosjektor.</p>
+    </div>
+    <div id="start-feil" class="feilboks skjult"></div>
+  </div>
+</section>
+
+<!-- ============ SPILL ============ -->
+<header id="topp" class="skjult">
+  <h1>Kampen om Afrika</h1>
+  <span class="kode" id="topp-kode"></span>
+  <span class="merke" id="topp-rolle"></span>
+  <span class="fase" id="topp-fase"></span>
+  <span class="timer" id="topp-timer"></span>
+</header>
+<main id="spill" class="skjult">
+  <div id="kartflate">
+    <svg id="kart" viewBox="0 0 1000 1100" role="img" aria-label="Spillkart"></svg>
+    <div class="status" id="kart-status"></div>
+  </div>
+  <aside id="panel"></aside>
+</main>
+<section id="skjerm" class="skjult">
+  <div id="kartflate-skjerm" style="flex:1;position:relative;background:var(--vann-flate)">
+    <svg id="kart-skjerm" viewBox="0 0 1000 1100" role="img" aria-label="Felleskart"></svg>
+  </div>
+  <div class="avsl-tekst" id="skjerm-tekst"></div>
+</section>
+
+<script>
+/* ---------- Innebygde data og regelmotor ---------- */
+const SPILLDATA = {"meta": {"tittel": "Kampen om Afrika – en simulering", "kilde": "B. Barker og R. Boden, oversatt av Else-Liv Øwre og Harald Frode Skram (1988)", "merknad": "Veiforbindelser merket 'usikker' er lest fra det håndtegnede kartet (s. 22) og må kontrolleres av lærer. Forbindelser merket 'bekreftet' er dokumentert i regelteksten med eksempler."}, "havomraader": [{"id": "vest", "navn": "Vestlige havområde"}, {"id": "oest", "navn": "Østlige havområde", "merknad": "Middelhavet og Det indiske hav, forbundet med Suezkanalen. Militære enheter fra andre land enn Storbritannia må ha britisk samtykke for å bruke kanalen; uten samtykke tar omveien fire runder. Sivile stasjoner bruker kanalen fritt."}], "byer": [{"id": "accra", "navn": "Accra", "havn": "vest", "x": 294, "y": 475}, {"id": "agadir", "navn": "Agadir", "havn": "vest", "x": 167, "y": 122}, {"id": "ain_salah", "navn": "Ain Salah", "havn": null, "x": 330, "y": 168}, {"id": "alger", "navn": "Alger", "havn": "vest", "x": 338, "y": 32, "base": "frankrike"}, {"id": "aswan", "navn": "Aswan", "havn": "oest", "x": 741, "y": 212}, {"id": "benghazi", "navn": "Benghazi", "havn": "oest", "x": 568, "y": 98}, {"id": "bulaweyo", "navn": "Bulaweyo", "havn": null, "x": 683, "y": 840}, {"id": "cape_town", "navn": "Cape Town", "havn": "vest", "x": 546, "y": 1035, "base": "storbritannia"}, {"id": "dakar", "navn": "Dakar", "havn": "vest", "x": 61, "y": 345, "base": "frankrike"}, {"id": "dar_es_salaam", "navn": "Dar-es-Salaam", "havn": "oest", "x": 826, "y": 650, "base": "tyskland"}, {"id": "djibouti", "navn": "Djibouti", "havn": "oest", "x": 880, "y": 389}, {"id": "dodoma", "navn": "Dodoma", "havn": null, "x": 780, "y": 641}, {"id": "douala", "navn": "Douala", "havn": "vest", "x": 428, "y": 496, "base": "tyskland"}, {"id": "enugu", "navn": "Enugu", "havn": null, "x": 398, "y": 462}, {"id": "fashoda", "navn": "Fashoda", "havn": null, "x": 730, "y": 414}, {"id": "fes", "navn": "Fes", "havn": null, "x": 230, "y": 71}, {"id": "ft_gouraud", "navn": "Fort Gouraud", "havn": null, "x": 125, "y": 232}, {"id": "ft_lamy", "navn": "Fort Lamy", "havn": null, "x": 500, "y": 382}, {"id": "gondar", "navn": "Gondar", "havn": null, "x": 803, "y": 375}, {"id": "johannesburg", "navn": "Johannesburg", "havn": null, "x": 676, "y": 926}, {"id": "juba", "navn": "Juba", "havn": null, "x": 723, "y": 485}, {"id": "kamina", "navn": "Kamina", "havn": null, "x": 634, "y": 678}, {"id": "kampala", "navn": "Kampala", "havn": null, "x": 737, "y": 549}, {"id": "kairo", "navn": "Kairo", "havn": "oest", "x": 719, "y": 127, "base": "storbritannia"}, {"id": "khartoum", "navn": "Khartoum", "havn": "oest", "x": 737, "y": 334}, {"id": "lagos", "navn": "Lagos", "havn": "vest", "x": 343, "y": 461}, {"id": "libreville", "navn": "Libreville", "havn": "vest", "x": 425, "y": 548}, {"id": "luanda", "navn": "Luanda", "havn": "vest", "x": 476, "y": 679}, {"id": "lusaka", "navn": "Lusaka", "havn": null, "x": 679, "y": 772}, {"id": "mombasa", "navn": "Mombasa", "havn": "oest", "x": 833, "y": 611}, {"id": "nairobi", "navn": "Nairobi", "havn": null, "x": 794, "y": 572}, {"id": "nakuru", "navn": "Nakuru", "havn": null, "x": 784, "y": 558}, {"id": "oran", "navn": "Oran", "havn": "vest", "x": 288, "y": 47}, {"id": "oujda", "navn": "Oujda", "havn": null, "x": 271, "y": 61}, {"id": "saint_louis", "navn": "Saint-Louis", "havn": "vest", "x": 74, "y": 326}, {"id": "sierra_leone", "navn": "Sierra Leone", "havn": "vest", "x": 118, "y": 433}, {"id": "sokoto", "navn": "Sokoto", "havn": null, "x": 368, "y": 368}, {"id": "tabora", "navn": "Tabora", "havn": null, "x": 740, "y": 625}, {"id": "tanger", "navn": "Tanger", "havn": "vest", "x": 219, "y": 46}, {"id": "tombouctou", "navn": "Tombouctou", "havn": null, "x": 256, "y": 316}, {"id": "tripoli", "navn": "Tripoli", "havn": "oest", "x": 475, "y": 87}, {"id": "tunis", "navn": "Tunis", "havn": "vest", "x": 434, "y": 31}, {"id": "ujiji", "navn": "Ujiji", "havn": null, "x": 697, "y": 624}], "veier": [{"fra": "tanger", "til": "fes", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "fes", "til": "oujda", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "fes", "til": "agadir", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "oujda", "til": "oran", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "oujda", "til": "ain_salah", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "oran", "til": "alger", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "alger", "til": "tunis", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "alger", "til": "ain_salah", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "tunis", "til": "tripoli", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "tripoli", "til": "benghazi", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "benghazi", "til": "kairo", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "agadir", "til": "ft_gouraud", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ft_gouraud", "til": "saint_louis", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ft_gouraud", "til": "tombouctou", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "saint_louis", "til": "dakar", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "saint_louis", "til": "tombouctou", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ain_salah", "til": "tombouctou", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ain_salah", "til": "sokoto", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ain_salah", "til": "ft_lamy", "status": "bekreftet", "kilde": "s. 11, eksempel om flytting Ain Salah → Ft. Lamy"}, {"fra": "tombouctou", "til": "sokoto", "status": "bekreftet", "kilde": "s. 8, britiske enheter ved Tombouctou flyttes til Sokoto"}, {"fra": "accra", "til": "lagos", "status": "bekreftet", "kilde": "s. 10, sivil stasjon i Lagos kan flyttes direkte til Accra"}, {"fra": "lagos", "til": "sokoto", "status": "bekreftet", "kilde": "s. 10, sivil stasjon i Lagos kan flyttes direkte til Sokoto"}, {"fra": "sokoto", "til": "ft_lamy", "status": "bekreftet", "kilde": "s. 6, fransk enhet i Sokoto flytter til Ft. Lamy"}, {"fra": "sokoto", "til": "enugu", "status": "bekreftet", "kilde": "s. 6, tysk enhet ved Enugu beordret til Sokoto"}, {"fra": "enugu", "til": "douala", "status": "bekreftet", "kilde": "s. 8, enhet fra Enugu kunne selv flytte direkte til Douala"}, {"fra": "douala", "til": "libreville", "status": "bekreftet", "kilde": "s. 8, enhet ved Libreville kunne flytte direkte til Douala"}, {"fra": "ft_lamy", "til": "fashoda", "status": "bekreftet", "kilde": "s. 11, stasjon beordres fra Fashoda til Ft. Lamy"}, {"fra": "kairo", "til": "aswan", "status": "bekreftet", "kilde": "s. 20, britisk enhet flytter fra Kairo til Aswan"}, {"fra": "aswan", "til": "khartoum", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "khartoum", "til": "fashoda", "status": "bekreftet", "kilde": "s. 12, Khartoum og Fashoda er 'nærliggende'; s. 7, Gondar → Fashoda → Khartoum tar to runder"}, {"fra": "fashoda", "til": "gondar", "status": "bekreftet", "kilde": "s. 7, enhet ved Gondar kan flytte direkte til Fashoda"}, {"fra": "gondar", "til": "djibouti", "status": "bekreftet", "kilde": "s. 7, enhet ved Gondar kan flytte direkte til Djibouti"}, {"fra": "fashoda", "til": "juba", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "juba", "til": "kampala", "status": "bekreftet", "kilde": "s. 8, to tyske enheter beordret fra Kampala til Juba"}, {"fra": "kampala", "til": "nakuru", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "nakuru", "til": "nairobi", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "nairobi", "til": "mombasa", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "kampala", "til": "ujiji", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ujiji", "til": "tabora", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "tabora", "til": "dodoma", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "dodoma", "til": "dar_es_salaam", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "mombasa", "til": "dar_es_salaam", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "ujiji", "til": "kamina", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "kamina", "til": "luanda", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "kamina", "til": "lusaka", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "lusaka", "til": "bulaweyo", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "bulaweyo", "til": "johannesburg", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "johannesburg", "til": "cape_town", "status": "bekreftet", "kilde": "kontrollert av lærer mot kartet s. 22"}, {"fra": "agadir", "til": "tanger", "status": "bekreftet", "kilde": "lagt til av lærer mot kartet s. 22"}, {"fra": "tanger", "til": "oujda", "status": "bekreftet", "kilde": "lagt til av lærer mot kartet s. 22"}, {"fra": "ujiji", "til": "lusaka", "status": "bekreftet", "kilde": "lagt til av lærer mot kartet s. 22"}, {"fra": "cape_town", "til": "bulaweyo", "status": "bekreftet", "kilde": "lagt til av lærer mot kartet s. 22"}], "ikkeForbindelser": [{"fra": "lagos", "til": "enugu", "kilde": "s. 10, eksplisitt: ikke direkte veiforbindelse"}, {"fra": "lagos", "til": "tombouctou", "kilde": "s. 10, eksplisitt: ikke direkte veiforbindelse"}, {"fra": "gondar", "til": "khartoum", "kilde": "s. 7, eksplisitt: ingen direkte rute"}, {"fra": "gondar", "til": "juba", "kilde": "s. 7, eksplisitt: ingen direkte rute"}, {"fra": "libreville", "til": "enugu", "kilde": "s. 8, Libreville kan ikke støtte angrep på Enugu (ingen direkte rute)"}, {"fra": "libreville", "til": "accra", "kilde": "s. 8, samme"}, {"fra": "libreville", "til": "ft_lamy", "kilde": "s. 8, samme"}, {"fra": "enugu", "til": "accra", "kilde": "s. 13, ingen direkte forbindelse (koloniavtale-eksempel)"}], "land": [{"id": "storbritannia", "navn": "Storbritannia", "farge": "#B03A2E", "regjeringssete": "London", "baser": ["cape_town", "kairo"], "roller": [{"rolle": "diplomatisk stab", "sted": "London"}, {"rolle": "offiserer for to militære enheter", "sted": "cape_town"}, {"rolle": "offiserer for to militære enheter", "sted": "kairo"}, {"rolle": "leder for sivil stasjon", "sted": "cape_town"}, {"rolle": "leder for sivil stasjon", "sted": "kairo"}]}, {"id": "frankrike", "navn": "Frankrike", "farge": "#1F618D", "regjeringssete": "Paris", "baser": ["alger", "dakar"], "roller": [{"rolle": "diplomatisk stab", "sted": "Paris"}, {"rolle": "offiserer for to militære enheter", "sted": "alger"}, {"rolle": "offiserer for to militære enheter", "sted": "dakar"}, {"rolle": "leder for sivil stasjon", "sted": "alger"}, {"rolle": "leder for sivil stasjon", "sted": "dakar"}]}, {"id": "tyskland", "navn": "Tyskland", "farge": "#1C2833", "regjeringssete": "Berlin", "baser": ["dar_es_salaam", "douala"], "roller": [{"rolle": "diplomatisk stab", "sted": "Berlin"}, {"rolle": "offiserer for to militære enheter", "sted": "dar_es_salaam"}, {"rolle": "offiserer for to militære enheter", "sted": "douala"}, {"rolle": "leder for sivil stasjon", "sted": "dar_es_salaam"}, {"rolle": "leder for sivil stasjon", "sted": "douala"}]}], "poeng": {"merknad": "Poeng pr. runde så lenge kontrollen varer, inkludert runden den ble etablert. Baser gir aldri poeng. Alle byer som ikke er nevnt gir standardpoeng.", "militaerKontroll": {"standard": 2, "frankrike": {"fashoda": 10, "fes": 10, "djibouti": 6, "agadir": 4, "ft_gouraud": 4, "ft_lamy": 4, "juba": 4, "khartoum": 4, "oujda": 4, "oran": 4}, "tyskland": {"fes": 10, "kampala": 10, "agadir": 6, "ft_gouraud": 4, "kamina": 4, "lusaka": 4, "oran": 4, "oujda": 4, "tabora": 4, "ujiji": 4}, "storbritannia": {"fashoda": 10, "kampala": 10, "accra": 6, "djibouti": 4, "juba": 4, "kamina": 4, "khartoum": 4, "lagos": 4, "sokoto": 4, "ujiji": 4}}, "oekonomiskKontroll": {"standard": 2, "frankrike": {"accra": 6, "djibouti": 6, "libreville": 6, "sokoto": 6, "tunis": 6}, "tyskland": {"benghazi": 6, "luanda": 6, "tanger": 6, "tripoli": 6, "ujiji": 6}, "storbritannia": {"accra": 6, "johannesburg": 6, "sierra_leone": 6, "mombasa": 6, "lagos": 6}}, "avtaler": {"vennskapsavtale": {"storbritannia": 6, "frankrike": 6, "tyskland": 12, "merknad": "Pr. runde avtalen er gyldig. Maks én vennskapsavtale pr. land pr. runde."}, "interessesfaere": {"bonusVedSignering": 8, "merknad": "Bonus kun i signeringsrunden. 1–2 nærliggende byer. Økonomisk kontroll ut simuleringen. Maks én slik avtale pr. land pr. runde (kan opprette to sfærer)."}, "koloni": {"storbritannia": 12, "frankrike": 12, "tyskland": 6, "merknad": "Bonus kun i signeringsrunden. Bilateral traktat: maks 2 byer. Trilateral: maks 4. Krav: minst én by okkupert med minst to militære enheter og minst én sivil stasjon i samme runde. Gir både militær og økonomisk kontroll ut simuleringen."}}}, "faser": [{"id": "forhandling", "navn": "Forhandlinger", "minutter": 5, "beskrivelse": "Fri forhandling mellom alle deltakere. Bare avtaler mellom diplomater er bindende."}, {"id": "ordre", "navn": "Skriving av ordre", "minutter": 5, "beskrivelse": "Alle skriver ordre for sine enheter. Uklare ordre regnes som ingen ordre."}, {"id": "avgjoerelse", "navn": "Offentliggjøring og poengberegning", "minutter": 10, "beskrivelse": "Ordrene offentliggjøres, konflikter avgjøres, poeng beregnes."}], "regjeringskontrollRunder": [5, 6, 9, 10], "runder": {"min": 6, "max": 10}};
+/* Kampen om Afrika – regelmotor
+ * Ren logikk, ingen DOM. Brukes av både tester (Node) og spillgrensesnittet (nettleser).
+ * Sidetall refererer til regelheftet (Barker/Boden 1988, norsk utgave).
+ */
+(function (rot) {
+'use strict';
+
+/* ============ Oppsett ============ */
+
+function lagMotor(spilldata) {
+  const byer = {}; spilldata.byer.forEach(b => byer[b.id] = b);
+  const naboer = {}; // by-id -> Set av by-ider
+  spilldata.byer.forEach(b => naboer[b.id] = new Set());
+  spilldata.veier.forEach(v => {
+    if (v.status && v.status !== 'bekreftet') return;
+    naboer[v.fra].add(v.til); naboer[v.til].add(v.fra);
+  });
+
+  // Havsoner: vest er én sone. Østlige havområde består av to deler (s. 9):
+  // Middelhavet og Det indiske hav, forbundet med Suezkanalen.
+  const SJOSONER = ['hav_vest', 'hav_oest_med', 'hav_oest_india'];
+  const MED_PORTER = new Set(['tripoli', 'benghazi', 'kairo']);
+  // Tolkningsvalg: Aswan/Khartoum regnes til india-delen (Rødehavet) – kan byttes.
+  function sjosoneForHavn(byId) {
+    const b = byer[byId];
+    if (!b || !b.havn) return null;
+    if (b.havn === 'vest') return 'hav_vest';
+    return MED_PORTER.has(byId) ? 'hav_oest_med' : 'hav_oest_india';
+  }
+  function sammeHavomraade(sone1, sone2) {
+    const oest = s => s === 'hav_oest_med' || s === 'hav_oest_india';
+    return sone1 === sone2 || (oest(sone1) && oest(sone2));
+  }
+  function erSjosone(sted) { return SJOSONER.includes(sted); }
+
+  /* ============ Starttilstand ============ */
+
+  function nyTilstand() {
+    const enheter = [];
+    spilldata.land.forEach(land => {
+      land.baser.forEach(base => {
+        for (let i = 1; i <= 2; i++)
+          enheter.push({ id: `${land.id}_mil_${base}_${i}`, land: land.id, type: 'militaer', sted: base, base, venter: false });
+        enheter.push({ id: `${land.id}_siv_${base}`, land: land.id, type: 'sivil', sted: base, base });
+      });
+    });
+    return {
+      runde: 1,
+      enheter,
+      militaerKontroll: {},              // byId -> landId
+      oekonomiskKontroll: {},            // byId -> [landId] (kan være delt, s. 10)
+      interessesfaerer: [],              // {land, byer, runde}
+      kolonier: [],                      // {land, byer, runde}
+      logg: []
+    };
+  }
+
+  /* ============ Ordrevalidering ============ */
+  // Uklar/ugyldig ordre => ingen ordre (s. 5): enheten blir stående uten å ta kontroll.
+
+  function validerOrdre(tilstand, ordre, avtalerRunden) {
+    const e = tilstand.enheter.find(x => x.id === ordre.enhetId);
+    if (!e) return { gyldig: false, grunn: 'ukjent enhet' };
+    if (e.venter) return { gyldig: false, grunn: 'enheten må stå uvirksom denne runden (etter retur til base)' };
+    const fra = e.sted;
+
+    const kanFlytteTil = til => {
+      if (erSjosone(fra) && erSjosone(til)) {
+        if (fra === til) return false;
+        // Suez: kryssing mellom øst-delene (s. 9)
+        if ((fra === 'hav_oest_med' && til === 'hav_oest_india') || (fra === 'hav_oest_india' && til === 'hav_oest_med'))
+          return e.type === 'sivil' || e.land === 'storbritannia' || !!(avtalerRunden && avtalerRunden.suezSamtykke?.includes(e.land));
+        return true; // vest <-> hver av øst-delene (rundt Kapp / i Middelhavet)
+      }
+      if (erSjosone(fra) && byer[til]) {
+        const sone = sjosoneForHavn(til);
+        if (!sone) return false;
+        if (sammeHavomraade(fra, sone)) {
+          if (fra !== sone) // krever Suez-passasje innen østlige (s. 9)
+            return e.type === 'sivil' || e.land === 'storbritannia' || !!(avtalerRunden && avtalerRunden.suezSamtykke?.includes(e.land));
+          return true;
+        }
+        return false;
+      }
+      if (byer[fra] && erSjosone(til)) {
+        const sone = sjosoneForHavn(fra);
+        return !!sone && (sone === til || sammeHavomraade(sone, til) &&
+          (e.type === 'sivil' || e.land === 'storbritannia' || !!(avtalerRunden && avtalerRunden.suezSamtykke?.includes(e.land))));
+      }
+      return naboer[fra]?.has(til) ?? false;
+    };
+
+    if (ordre.type === 'staa') return { gyldig: true };
+    if (ordre.type === 'flytt') {
+      if (!ordre.til) return { gyldig: false, grunn: 'mangler mål' };
+      // Baser: ingen fremmede enheter uten skriftlig tillatelse fra eierens diplomat (s. 3)
+      const maalBy = byer[ordre.til];
+      if (maalBy?.base && maalBy.base !== e.land &&
+          !(avtalerRunden && (avtalerRunden.baseInnpass || []).some(a => a.by === ordre.til && a.land === e.land)))
+        return { gyldig: false, grunn: `${ordre.til} er ${maalBy.base} sin base – krever skriftlig tillatelse (s. 3)` };
+      return kanFlytteTil(ordre.til) ? { gyldig: true } : { gyldig: false, grunn: `ingen direkte forbindelse ${fra} → ${ordre.til}` };
+    }
+    if (ordre.type === 'stoett') {
+      if (e.type !== 'militaer') return { gyldig: false, grunn: 'sivile stasjoner kan ikke støtte (s. 11)' };
+      if (!ordre.til) return { gyldig: false, grunn: 'mangler mål for støtten' };
+      // Støtte krever at støttegiveren selv kunne flyttet dit (s. 8)
+      return kanFlytteTil(ordre.til) ? { gyldig: true } : { gyldig: false, grunn: `kan ikke støtte mot ${ordre.til}: ingen direkte forbindelse` };
+    }
+    return { gyldig: false, grunn: 'ukjent ordretype' };
+  }
+
+  /* ============ Rundeavgjørelse – militære enheter ============ */
+
+  function avgjoerRunde(tilstand, alleOrdrer, avtalerRunden = {}) {
+    const t = strukturKopi(tilstand);
+    const hendelser = [];
+    const ordreFor = {};
+    t.enheter.forEach(e => { if (e.venter) e.venter = false; }); // ventetiden gjelder denne runden – nulles etter bruk under
+    tilstand.enheter.forEach(e => {
+      const o = alleOrdrer.find(x => x.enhetId === e.id);
+      if (!o) { ordreFor[e.id] = { type: 'ingen' }; return; }
+      if (tilstand.enheter.find(x => x.id === e.id).venter) {
+        ordreFor[e.id] = { type: 'ingen' };
+        hendelser.push(`${e.id}: må stå uvirksom denne runden – ordren forkastes`);
+        return;
+      }
+      const v = validerOrdre(tilstand, o, avtalerRunden);
+      if (!v.gyldig) { ordreFor[e.id] = { type: 'ingen' }; hendelser.push(`${e.id}: ugyldig ordre (${v.grunn}) – regnes som ingen ordre (s. 5)`); }
+      else ordreFor[e.id] = o;
+    });
+
+    const mil = t.enheter.filter(e => e.type === 'militaer');
+    const stedFor = {}; mil.forEach(e => stedFor[e.id] = e.sted);
+
+    // 1) Stående enheter (stå eller stoett) er urokkelige (s. 6, 8)
+    const staaende = new Set(mil.filter(e => ['staa', 'stoett'].includes(ordreFor[e.id].type)).map(e => e.id));
+
+    // 2) Grupper flytteforsøk per mål
+    const forsoek = {}; // mål -> [{enhet, fra}]
+    mil.forEach(e => {
+      const o = ordreFor[e.id];
+      if (o.type === 'flytt') (forsoek[o.til] ??= []).push({ enhet: e, fra: e.sted });
+    });
+
+    // 3) Støtte per (land, mål): teller bare når direkte styrker er like (s. 8)
+    const stoette = {}; // `${land}|${mål}` -> antall
+    mil.forEach(e => {
+      const o = ordreFor[e.id];
+      if (o.type === 'stoett') stoette[`${e.land}|${o.til}`] = (stoette[`${e.land}|${o.til}`] || 0) + 1;
+    });
+
+    const returnerer = []; // {enhet, fra}
+
+    for (const [maal, liste] of Object.entries(forsoek)) {
+      const perLand = {};
+      liste.forEach(f => (perLand[f.enhet.land] ??= []).push(f));
+
+      // >2 fra samme land til samme by: alle returnerer (s. 8 N.B.)
+      for (const [land, fs] of Object.entries(perLand)) {
+        if (byer[maal] && fs.length > 2) {
+          fs.forEach(f => returnerer.push(f));
+          hendelser.push(`${maal}: mer enn to ${land}-enheter beordret dit – alle returnerer (s. 8)`);
+          delete perLand[land];
+        }
+      }
+      const landListe = Object.keys(perLand);
+      if (landListe.length === 0) continue;
+
+      // Stående enhet i målbyen fra annet land blokkerer (s. 6), med mindre vennskapsavtale gir innpass
+      const staaendeIMaal = mil.filter(e => e.sted === maal && staaende.has(e.id));
+      const blokkerteLand = new Set();
+      staaendeIMaal.forEach(s => landListe.forEach(land => {
+        if (land !== s.land && !harInnpass(avtalerRunden, land, s.land, maal)) blokkerteLand.add(land);
+      }));
+      blokkerteLand.forEach(land => {
+        perLand[land].forEach(f => returnerer.push(f));
+        hendelser.push(`${maal}: stående enhet kan ikke tvinges ut – ${land} sitt trekk mislykkes (s. 6)`);
+        delete perLand[land];
+      });
+
+      const rest = Object.keys(perLand);
+      if (rest.length === 0) continue;
+
+      if (rest.length === 1) {
+        vinnFlytting(perLand[rest[0]], maal);
+      } else {
+        // Sammenstøt mellom land (s. 7–8). Til havs: ingen stopp-opp (s. 9) – alle kommer fram.
+        if (erSjosone(maal)) { rest.forEach(l => vinnFlytting(perLand[l], maal)); continue; }
+        const styrke = {};
+        rest.forEach(l => {
+          const direkte = perLand[l].length;
+          styrke[l] = { direkte, medStoette: direkte };
+        });
+        const maksDirekte = Math.max(...rest.map(l => styrke[l].direkte));
+        const iTet = rest.filter(l => styrke[l].direkte === maksDirekte);
+        let vinnere;
+        if (iTet.length === 1) vinnere = iTet; // ulik direkte styrke: størst vinner, støtte teller ikke (s. 8)
+        else {
+          iTet.forEach(l => styrke[l].medStoette += (stoette[`${l}|${maal}`] || 0));
+          const maks = Math.max(...iTet.map(l => styrke[l].medStoette));
+          vinnere = iTet.filter(l => styrke[l].medStoette === maks);
+        }
+        if (vinnere.length === 1) {
+          vinnFlytting(perLand[vinnere[0]], maal);
+          rest.filter(l => l !== vinnere[0]).forEach(l => {
+            perLand[l].forEach(f => returnerer.push(f));
+            hendelser.push(`${maal}: ${l} taper sammenstøtet og returnerer`);
+          });
+        } else {
+          rest.forEach(l => perLand[l].forEach(f => returnerer.push(f)));
+          hendelser.push(`${maal}: «Stopp-opp» – jevnbyrdige styrker, alle returnerer (s. 7–8)`);
+        }
+      }
+    }
+
+    function vinnFlytting(fs, maal) {
+      // Okkupasjonstak: maks to militære enheter i en by pr. runde, samme nasjonalitet
+      // med mindre vennskapsavtale tillater felles okkupasjon (s. 7 N.B.)
+      if (byer[maal]) {
+        const blirVaerende = mil.filter(e => e.sted === maal && ['staa', 'stoett', 'ingen'].includes(ordreFor[e.id].type));
+        const alle = [...blirVaerende, ...fs.map(f => f.enhet)];
+        if (alle.length > 2) { fs.forEach(f => returnerer.push(f)); hendelser.push(`${maal}: over to enheter ville okkupert byen – flyttingen mislykkes (s. 7)`); return; }
+        const landISpill = new Set(alle.map(e => e.land));
+        if (landISpill.size > 1) {
+          const [l1, l2] = [...landISpill];
+          if (!harInnpass(avtalerRunden, l1, l2, maal) && !harInnpass(avtalerRunden, l2, l1, maal)) {
+            fs.forEach(f => returnerer.push(f));
+            hendelser.push(`${maal}: felles okkupasjon krever vennskapsavtale – flyttingen mislykkes (s. 7)`);
+            return;
+          }
+        }
+      }
+      fs.forEach(f => { f.enhet.sted = maal; hendelser.push(`${f.enhet.id}: ${f.fra} → ${maal}`); });
+    }
+
+    // 4) Returer: tilbake dit de kom fra hvis mulig, ellers til base + uvirksom neste runde (s. 7)
+    returnerer.forEach(({ enhet, fra }) => {
+      const iByen = mil.filter(e => e.id !== enhet.id && e.sted === fra);
+      const plass = !byer[fra] || (iByen.length < 2 && iByen.every(e => e.land === enhet.land));
+      if (plass) { enhet.sted = fra; enhet.kontrollSperre = true; } // retur gir ikke kontroll (s. 7 N.B.)
+      else {
+        enhet.sted = enhet.base; enhet.venter = true;
+        hendelser.push(`${enhet.id}: ${fra} er opptatt – returnerer til basen ${enhet.base} og står uvirksom neste runde (s. 7)`);
+      }
+    });
+
+    // 5) Militær kontroll: etableres av stå/støtt-ordre i en by (s. 6, 8b)
+    mil.forEach(e => {
+      const o = ordreFor[e.id];
+      if (['staa', 'stoett'].includes(o.type) && byer[e.sted] && !erBase(e.sted)) {
+        t.militaerKontroll[e.sted] = e.land;
+      }
+      delete e.kontrollSperre;
+    });
+
+    /* ============ Sivile stasjoner ============ */
+    const siv = t.enheter.filter(e => e.type === 'sivil');
+    const sivOrdre = {}; siv.forEach(e => sivOrdre[e.id] = ordreFor[e.id]);
+    const sivFlytt = siv.filter(e => sivOrdre[e.id].type === 'flytt');
+
+    sivFlytt.forEach(e => {
+      const maal = sivOrdre[e.id].til;
+      if (!byer[maal]) { e.sted = maal; return; } // ut i havsone: ingen begrensning (s. 11)
+      // Militært kontrollert by: krever tillatelse fra den militære enheten (s. 10)
+      const kontrollLand = t.militaerKontroll[maal];
+      const harMilTilstede = mil.some(m => m.sted === maal && staaende.has(m.id));
+      if (kontrollLand && kontrollLand !== e.land && harMilTilstede && !(avtalerRunden.sivilInnpass || []).some(a => a.by === maal && a.land === e.land)) {
+        hendelser.push(`${e.id}: ${maal} er militært kontrollert av ${kontrollLand} og innpass ble avslått – blir i ${e.sted} (s. 11 b)`);
+        return;
+      }
+      // Maks to sivile stasjoner i byen ved rundens slutt (s. 10–11 a)
+      const blirVaerende = siv.filter(s => s.sted === maal && sivOrdre[s.id].type !== 'flytt');
+      const andreInn = sivFlytt.filter(s => s.id !== e.id && sivOrdre[s.id].til === maal);
+      if (blirVaerende.length + andreInn.length + 1 > 2) {
+        hendelser.push(`${e.id}: flyttingen ville gitt over to sivile stasjoner i ${maal} – blir i ${e.sted} (s. 11 a)`);
+        return;
+      }
+      hendelser.push(`${e.id}: ${e.sted} → ${maal}`);
+      e.sted = maal;
+    });
+
+    // Økonomisk kontroll (s. 10): stå-ordre etablerer kontroll; stående slår tilflyttende;
+    // to som flytter inn samtidig og blir stående neste runde deler – her: samtidige stå-ordre deler.
+    siv.forEach(e => {
+      if (sivOrdre[e.id].type === 'staa' && byer[e.sted] && !erBase(e.sted)) {
+        const andre = siv.filter(s => s.id !== e.id && s.sted === e.sted && sivOrdre[s.id].type === 'staa' && s.land !== e.land);
+        t.oekonomiskKontroll[e.sted] = andre.length ? [...new Set([e.land, ...andre.map(a => a.land)])].sort() : [e.land];
+      }
+    });
+
+    /* ============ Avtaler denne runden ============ */
+    (avtalerRunden.interessesfaerer || []).forEach(a => {
+      const feil = validerSfaere(t, a);
+      if (feil) hendelser.push(`Interessesfære ${a.land}/${a.byer.join('+')}: UGYLDIG – ${feil}`);
+      else {
+        t.interessesfaerer.push({ ...a, runde: t.runde });
+        a.byer.forEach(by => t.oekonomiskKontroll[by] = [a.land]);
+        hendelser.push(`Interessesfære etablert: ${a.byer.join(' + ')} → ${a.land} (s. 12–13)`);
+      }
+    });
+    (avtalerRunden.kolonier || []).forEach(a => {
+      const feil = validerKoloni(t, a, staaende, sivOrdre);
+      if (feil) hendelser.push(`Koloni ${a.land}/${a.byer.join('+')}: UGYLDIG – ${feil}`);
+      else {
+        t.kolonier.push({ ...a, runde: t.runde });
+        a.byer.forEach(by => { t.militaerKontroll[by] = a.land; t.oekonomiskKontroll[by] = [a.land]; });
+        hendelser.push(`Koloni etablert: ${a.byer.join(' + ')} → ${a.land} (s. 13–14)`);
+      }
+    });
+
+    t.logg.push({ runde: t.runde, hendelser });
+    const poeng = beregnPoeng(t, avtalerRunden);
+    t.runde += 1;
+    return { tilstand: t, hendelser, poeng };
+  }
+
+  function harInnpass(avtalerRunden, land, eierLand, by) {
+    // Vennskapsavtale om felles okkupasjon (s. 7) – eller tillatelse til innpass i eierens base (s. 3),
+    // som i seg selv innebærer at eier og gjest står der sammen.
+    if ((avtalerRunden.fellesOkkupasjon || []).some(a => a.by === by && a.land.includes(land) && a.land.includes(eierLand))) return true;
+    const base = byer[by]?.base;
+    return !!base && (avtalerRunden.baseInnpass || []).some(a => a.by === by && a.land === land && base === eierLand);
+  }
+
+  function erBase(byId) { return !!byer[byId]?.base; }
+
+  /* ============ Avtalevilkår ============ */
+
+  function sammenhengende(byListe) {
+    // Hver by må ha direkte vei til minst én annen by i området (s. 13)
+    if (byListe.length === 1) return true;
+    return byListe.every(a => byListe.some(b => b !== a && naboer[a]?.has(b)));
+  }
+
+  function validerSfaere(t, a) {
+    if (a.byer.length < 1 || a.byer.length > 2) return 'en interessesfære omfatter én eller to byer (s. 12)';
+    if (a.byer.length === 2 && !naboer[a.byer[0]]?.has(a.byer[1])) return 'byene må være nærliggende (s. 12)';
+    if (a.byer.some(by => erBase(by))) return 'baser kan ikke inngå (s. 3–4)';
+    const harStasjon = t.enheter.some(e => e.type === 'sivil' && e.land === a.land && a.byer.includes(e.sted));
+    if (!harStasjon) return 'landet må ha en sivil stasjon i minst én av byene (s. 12 a)';
+    const fremmedSiv = t.enheter.some(e => e.type === 'sivil' && e.land !== a.land && a.byer.includes(e.sted));
+    const fremmedKontroll = a.byer.some(by =>
+      (t.oekonomiskKontroll[by] && !t.oekonomiskKontroll[by].every(l => l === a.land)) ||
+      (t.militaerKontroll[by] && t.militaerKontroll[by] !== a.land));
+    if (fremmedSiv || fremmedKontroll) return 'fremmede stasjoner/enheter besetter eller kontrollerer byer i sfæren (s. 13 b–c)';
+    if (a.byer.some(by => t.interessesfaerer.some(s => s.land !== a.land && s.byer.includes(by)))) return 'byen ligger i et annet lands interessesfære';
+    return null;
+  }
+
+  function validerKoloni(t, a, staaende, sivOrdre) {
+    const maks = a.trilateral ? 4 : 2;
+    if (a.byer.length < 1 || a.byer.length > maks) return `en ${a.trilateral ? 'trilateral' : 'bilateral'} koloni omfatter høyst ${maks} byer (s. 13–14)`;
+    if (!sammenhengende(a.byer)) return 'hver by må ha direkte vei til minst én annen by i kolonien (s. 13)';
+    if (a.byer.some(by => erBase(by))) return 'baser kan ikke inngå (s. 3–4)';
+    const milIOmraadet = t.enheter.filter(e => e.type === 'militaer' && e.land === a.land && a.byer.includes(e.sted));
+    const harToMil = Object.values(milIOmraadet.reduce((m, e) => ((m[e.sted] = (m[e.sted] || 0) + 1), m), {})).some(n => n >= 2);
+    if (!harToMil) return 'landet må ha okkupert minst én by i kolonien med minst to militære enheter (s. 14 b)';
+    const harSiv = t.enheter.some(e => e.type === 'sivil' && e.land === a.land && a.byer.includes(e.sted));
+    if (!harSiv) return 'landet må ha minst én sivil stasjon i kolonien (s. 14 b)';
+    const fremmed = t.enheter.some(e => e.land !== a.land && a.byer.includes(e.sted));
+    if (fremmed) return 'fremmede enheter/stasjoner okkuperer byer i kolonien (s. 14 c)';
+    return null;
+  }
+
+  /* ============ Poengberegning (s. 15–18) ============ */
+
+  function beregnPoeng(t, avtalerRunden = {}) {
+    const p = {}; spilldata.land.forEach(l => p[l.id] = { militaer: 0, oekonomisk: 0, avtaler: 0, sum: 0, detaljer: [] });
+    const mk = spilldata.poeng.militaerKontroll, ok = spilldata.poeng.oekonomiskKontroll;
+
+    for (const [by, land] of Object.entries(t.militaerKontroll)) {
+      if (erBase(by)) continue;
+      const verdi = mk[land]?.[by] ?? mk.standard;
+      p[land].militaer += verdi; p[land].detaljer.push(`militær kontroll ${by}: ${verdi}`);
+    }
+    for (const [by, landListe] of Object.entries(t.oekonomiskKontroll)) {
+      if (erBase(by)) continue;
+      landListe.forEach(land => {
+        const verdi = ok[land]?.[by] ?? ok.standard;
+        p[land].oekonomisk += verdi; p[land].detaljer.push(`økonomisk kontroll ${by}: ${verdi}${landListe.length > 1 ? ' (delt)' : ''}`);
+      });
+    }
+    (avtalerRunden.vennskapsavtaler || []).forEach(a => a.land.forEach(land => {
+      const verdi = spilldata.poeng.avtaler.vennskapsavtale[land];
+      p[land].avtaler += verdi; p[land].detaljer.push(`vennskapsavtale: ${verdi}`);
+    }));
+    t.interessesfaerer.filter(s => s.runde === t.runde).forEach(s => (s.signert || [s.land, s.medLand]).filter(Boolean).forEach(land => {
+      p[land].avtaler += 8; p[land].detaljer.push('bonus interessesfære-avtale: 8');
+    }));
+    t.kolonier.filter(k => k.runde === t.runde).forEach(k => {
+      k.signertAv.forEach(land => {
+        const verdi = spilldata.poeng.avtaler.koloni[land];
+        p[land].avtaler += verdi; p[land].detaljer.push(`bonus koloniavtale: ${verdi}`);
+      });
+    });
+    Object.values(p).forEach(x => x.sum = x.militaer + x.oekonomisk + x.avtaler);
+    return p;
+  }
+
+  function strukturKopi(x) { return JSON.parse(JSON.stringify(x)); }
+
+  return { nyTilstand, validerOrdre, avgjoerRunde, beregnPoeng, naboer, byer, sjosoneForHavn, erSjosone };
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { lagMotor };
+else rot.Regelmotor = { lagMotor };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+const MOTOR = (typeof Regelmotor !== 'undefined' ? Regelmotor : window.Regelmotor).lagMotor(SPILLDATA);
+
+/* ---------- Grunnoppsett ---------- */
+const BY = MOTOR.byer;
+const LAND = {}; SPILLDATA.land.forEach(l => LAND[l.id] = l);
+const KORT = { storbritannia:'gb', frankrike:'fr', tyskland:'de' };
+const P = (lat, lon) => ({ x:(lon+22)*13.5, y:(39-lat)*14.2 });
+const SJOPOS = { hav_vest:P(4,-13), hav_oest_med:P(34.3,18), hav_oest_india:P(-9,46) };
+const SJONAVN = { hav_vest:'Vestlige havområde', hav_oest_med:'Østlige havområde (Middelhavet)', hav_oest_india:'Østlige havområde (Det indiske hav)' };
+const REGJERINGSRUNDER = SPILLDATA.regjeringskontrollRunder || [5,6,9,10];
+const FASENAVN = { lobby:'Venter på start', forhandling:'1 · Forhandlinger', ordre:'2 · Skriving av ordre', avsloering:'3 · Offentliggjøring', ferdig:'Spillet er slutt' };
+
+function stedNavn(id) { return BY[id] ? BY[id].navn : (SJONAVN[id] || id); }
+
+// Roller: 15 stk, 5 pr. land
+const ROLLER = [];
+SPILLDATA.land.forEach(l => {
+  ROLLER.push({ id:`${l.id}_dip`, land:l.id, type:'diplomat', navn:`Diplomatisk stab, ${l.regjeringssete}`, enheter:[] });
+  l.baser.forEach(b => {
+    ROLLER.push({ id:`${l.id}_mil_${b}`, land:l.id, type:'militaer', navn:`Offiserer, ${BY[b].navn}`, enheter:[`${l.id}_mil_${b}_1`, `${l.id}_mil_${b}_2`] });
+    ROLLER.push({ id:`${l.id}_siv_${b}`, land:l.id, type:'sivil', navn:`Sivil stasjon, ${BY[b].navn}`, enheter:[`${l.id}_siv_${b}`] });
+  });
+});
+const ROLLE = {}; ROLLER.forEach(r => ROLLE[r.id] = r);
+
+/* ---------- Lagring: Supabase (delt), ellers nettleserens eget lager ---------- */
+const minne = new Map();
+const lokalLager = (() => {
+  try { const t = '__kampen_test__'; window.localStorage.setItem(t, '1'); window.localStorage.removeItem(t); return window.localStorage; } catch (e) { return null; }
+})();
+function lokalSett(k, v) { if (lokalLager) lokalLager.setItem(k, v); else minne.set(k, v); }
+function lokalHent(k) { return lokalLager ? lokalLager.getItem(k) : (minne.get(k) ?? null); }
+function lokalNokler(prefix) {
+  if (!lokalLager) return [...minne.keys()].filter(k => k.startsWith(prefix));
+  const ut = []; for (let i = 0; i < lokalLager.length; i++) { const k = lokalLager.key(i); if (k && k.startsWith(prefix)) ut.push(k); } return ut;
+}
+
+const SB_URL = (window.SUPABASE_URL || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '').replace(/\/+$/, '');
+const SB_KEY = (window.SUPABASE_KEY || '').trim();
+const SUPABASE = /^https:\/\/.+/.test(SB_URL) && SB_KEY.length > 20 && !SB_KEY.includes('LIM-INN');
+let LAGRINGSMODUS = SUPABASE ? 'delt' : (lokalLager ? 'lokal-faner' : 'lokal-vindu');
+let sisteFeil = null; // 'nett' | 'avvist'
+// Nye nøkler (sb_publishable_…) sendes bare som apikey; eldre JWT-nøkler (eyJ…) også som Bearer.
+const SB_HODER = { apikey: SB_KEY, 'Content-Type': 'application/json', ...(SB_KEY.startsWith('eyJ') ? { Authorization: `Bearer ${SB_KEY}` } : {}) };
+async function sb(sti, valg = {}) {
+  for (let forsok = 0; forsok < 2; forsok++) {
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/${sti}`, { ...valg, headers: { ...SB_HODER, ...(valg.headers || {}) } });
+      if (r.ok) { sisteFeil = null; return r; }
+      sisteFeil = 'avvist'; console.error('Supabase', r.status, await r.text().catch(() => ''));
+      if (r.status < 500) return null;
+    } catch (e) { sisteFeil = 'nett'; console.error('Supabase', e); }
+    if (forsok === 0) await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
+  }
+  return null;
+}
+function delKey(k) {
+  const m = /^kampen:([A-Z]{4}):(.+)$/.exec(k);
+  if (!m) return null;
+  const seg = m[2].split(':');
+  return { spill: m[1], s1: seg[0] || '', s2: seg[1] || '' };
+}
+const forhaand = new Map(); // verdier hentet av nokler(), brukt av neste hent()
+async function lagre(k, v) {
+  if (SUPABASE) {
+    const d = delKey(k); if (!d) return false;
+    forhaand.delete(k);
+    const r = await sb('kv?on_conflict=key', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ key: k, spill: d.spill, s1: d.s1, s2: d.s2, v, t: Date.now(), oppdatert: new Date().toISOString() }) });
+    return !!r;
+  }
+  try { lokalSett(k, JSON.stringify(v)); return true; } catch (e) { return false; }
+}
+async function hent(k) {
+  if (forhaand.has(k)) { const v = forhaand.get(k); forhaand.delete(k); return v; }
+  if (SUPABASE) {
+    if (!delKey(k)) return null;
+    const r = await sb(`kv?key=eq.${encodeURIComponent(k)}&select=v`);
+    if (!r) return null;
+    const rader = await r.json().catch(() => []);
+    return rader.length ? rader[0].v : null;
+  }
+  const v = lokalHent(k); return v ? JSON.parse(v) : null;
+}
+async function nokler(prefix) {
+  if (SUPABASE) {
+    const d = delKey(prefix.replace(/:$/, '')); if (!d) return [];
+    let sti = `kv?spill=eq.${encodeURIComponent(d.spill)}&s1=eq.${encodeURIComponent(d.s1)}&select=key,v`;
+    if (d.s2) sti += `&s2=eq.${encodeURIComponent(d.s2)}`;
+    const r = await sb(sti); if (!r) return [];
+    const rader = await r.json().catch(() => []);
+    const ut = [];
+    rader.forEach(x => { if (typeof x.key === 'string' && x.key.startsWith(prefix)) { ut.push(x.key); forhaand.set(x.key, x.v); } });
+    return ut;
+  }
+  return lokalNokler(prefix);
+}
+const K = {
+  meta: kode => `kampen:${kode}:meta`,
+  tilstand: kode => `kampen:${kode}:tilstand`,
+  spiller: (kode, rolle, klient) => `kampen:${kode}:spiller:${rolle}:${klient}`,
+  spillere: kode => `kampen:${kode}:spiller:`,
+  ordre: (kode, runde, rolle) => `kampen:${kode}:ordre:${runde}:${rolle}`,
+  ordrer: (kode, runde) => `kampen:${kode}:ordre:${runde}:`,
+  forslag: (kode, runde, land) => `kampen:${kode}:forslag:${runde}:${land}`,
+  avtaler: (kode, runde) => `kampen:${kode}:avtaler:${runde}`,
+  resultat: (kode, runde) => `kampen:${kode}:resultat:${runde}`,
+  avsloering: kode => `kampen:${kode}:avsloering`
+};
+
+/* ---------- App-tilstand ---------- */
+const app = {
+  modus:null, kode:null, rolle:null, navn:'', klient:Math.random().toString(36).slice(2,8),
+  meta:null, tilstand:null, resultat:null, avsl:null, ordrer:{}, forslag:[], avtaler:null,
+  valgtEnhet:null, ordreListe:[], sistOrdreLagret:null, teller:null, panelFane:'ordre'
+};
+
+/* ---------- Hjelpere ---------- */
+const $ = s => document.querySelector(s);
+const el = (tag, attrs={}, ...barn) => {
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) { if (k==='class') e.className=v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (k==='html') e.innerHTML=v; else e.setAttribute(k,v); }
+  barn.flat().forEach(b => b != null && e.append(b.nodeType ? b : document.createTextNode(String(b))));
+  return e;
+};
+const NS = 'http://www.w3.org/2000/svg';
+const ny = (tag, attrs={}) => { const e = document.createElementNS(NS, tag); for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+function vis(id, ja) { $(id).classList.toggle('skjult', !ja); }
+function feil(t) { const f = $('#start-feil'); f.textContent = t; f.classList.remove('skjult'); }
+function ikkeFunnet() {
+  if (SUPABASE && sisteFeil === 'nett') return 'Fikk ikke kontakt med databasen. Sjekk nettforbindelsen og prøv igjen.';
+  if (SUPABASE && sisteFeil === 'avvist') return 'Databasen svarte ikke som den skulle. Be læreren sjekke at Supabase-prosjektet ikke er satt på pause.';
+  if (LAGRINGSMODUS === 'lokal-vindu') return 'Fant ikke spillet. I denne nettleseren finnes spillet bare i vinduet der det ble opprettet.';
+  if (LAGRINGSMODUS === 'lokal-faner') return 'Fant ikke noe spill med den koden i denne nettleseren. I testmodus må spillet være opprettet i samme nettleser på samme maskin.';
+  return 'Fant ikke noe spill med den koden. Sjekk koden med læreren – den har fire bokstaver, uten O og I.';
+}
+function skrivefeil() {
+  if (sisteFeil === 'nett') return 'Fikk ikke kontakt med databasen. Sjekk nettforbindelsen og prøv igjen.';
+  return 'Kunne ikke lagre. Be læreren sjekke at Supabase-prosjektet er aktivt (ikke satt på pause), og at oppsettsskriptet er kjørt.';
+}
+function lagKode() { const a='ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({length:4}, () => a[Math.floor(Math.random()*a.length)]).join(''); }
+function mmss(s) { s = Math.max(0, Math.round(s)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+function enhetNavn(id) {
+  const e = app.tilstand?.enheter.find(x => x.id === id); if (!e) return id;
+  const base = BY[e.base]?.navn || e.base;
+  return e.type === 'militaer' ? `${LAND[e.land].navn}s ${id.endsWith('_1')?'1.':'2.'} enhet fra ${base}` : `${LAND[e.land].navn}s sivile stasjon fra ${base}`;
+}
+function ordreTekst(o) {
+  if (!o || o.type === 'ingen') return 'ingen ordre';
+  if (o.type === 'staa') return 'blir stående';
+  if (o.type === 'flytt') return `flytter til ${stedNavn(o.til)}`;
+  if (o.type === 'stoett') return `blir stående og støtter flytting til ${stedNavn(o.til)}`;
+  return '?';
+}
+
+/* ---------- Kart ---------- */
+const KYST = [[35.8,-5.8],[35.7,-0.6],[36.9,3.1],[37.1,7.8],[37.3,10.2],[36.8,11.1],[33.9,10.1],[32.9,13.2],[31.1,17.4],[32.1,20.1],[32.1,23.9],[31.2,29.9],[31.5,31.6],[31.3,32.3],[29.9,32.6],[27.2,33.8],[19.6,37.2],[15.6,39.5],[12.6,43.3],[10.4,45.0],[11.8,51.3],[7.0,49.3],[2.0,45.3],[-0.4,42.5],[-2.3,40.9],[-4.0,39.7],[-6.8,39.3],[-10.7,40.6],[-15.0,40.7],[-19.8,34.9],[-25.9,32.6],[-29.9,31.0],[-34.0,25.6],[-34.8,20.0],[-33.9,18.4],[-30.0,17.2],[-26.6,15.2],[-22.9,14.5],[-15.2,12.2],[-8.8,13.2],[-6.0,12.3],[-0.7,8.8],[0.4,9.4],[3.9,9.6],[6.4,3.4],[5.5,-0.2],[5.3,-4.0],[4.4,-7.7],[8.5,-13.2],[11.9,-15.6],[14.7,-17.5],[16.0,-16.5],[18.1,-16.0],[20.8,-17.1],[23.7,-15.9],[27.9,-12.9],[30.4,-9.7],[33.6,-7.6],[35.2,-6.1]];
+const MADAGASKAR = [[-12.0,49.3],[-15.4,50.5],[-19.6,48.8],[-23.6,47.6],[-25.6,45.2],[-24.5,43.9],[-21.6,43.3],[-19.0,44.4],[-16.1,45.9],[-13.4,48.0]];
+const NAVN_POS = { tanger:{dx:-8,dy:-6,a:'end'}, fes:{dx:-8,dy:10,a:'end'}, oujda:{dx:6,dy:12}, oran:{dx:-4,dy:-8,a:'end'}, agadir:{dx:-10,dy:4,a:'end'}, saint_louis:{dx:-10,dy:-4,a:'end'}, dakar:{dx:-10,dy:8,a:'end'}, sierra_leone:{dx:-10,dy:4,a:'end'}, accra:{dx:-4,dy:16}, lagos:{dx:-6,dy:-8,a:'end'}, enugu:{dx:8,dy:-6}, douala:{dx:8,dy:10}, libreville:{dx:-10,dy:8,a:'end'}, luanda:{dx:-10,dy:4,a:'end'}, cape_town:{dx:-8,dy:14,a:'end'}, johannesburg:{dx:10,dy:4}, kairo:{dx:6,dy:-8}, aswan:{dx:9,dy:4}, khartoum:{dx:9,dy:4}, fashoda:{dx:-9,dy:4,a:'end'}, gondar:{dx:9,dy:-2}, djibouti:{dx:9,dy:4}, juba:{dx:-9,dy:6,a:'end'}, kampala:{dx:-9,dy:-4,a:'end'}, nakuru:{dx:-8,dy:-8,a:'end'}, nairobi:{dx:9,dy:-2}, mombasa:{dx:9,dy:6}, ujiji:{dx:-9,dy:4,a:'end'}, tabora:{dx:2,dy:15}, dodoma:{dx:4,dy:15}, dar_es_salaam:{dx:10,dy:2}, tombouctou:{dx:6,dy:-8} };
+function glatt(pts) {
+  const n = pts.length; let d = `M ${pts[0].x} ${pts[0].y} `;
+  for (let i=0;i<n;i++) { const p0=pts[(i-1+n)%n], p1=pts[i], p2=pts[(i+1)%n], p3=pts[(i+2)%n];
+    d += `C ${p1.x+(p2.x-p0.x)/6} ${p1.y+(p2.y-p0.y)/6} ${p2.x-(p3.x-p1.x)/6} ${p2.y-(p3.y-p1.y)/6} ${p2.x} ${p2.y} `; }
+  return d + 'Z';
+}
+function posFor(sted) { return BY[sted] ? { x:BY[sted].x, y:BY[sted].y } : (SJOPOS[sted] || { x:0, y:0 }); }
+const KLYNGE = [[-12,-13],[12,-13],[-12,13],[12,13],[0,-26],[0,26],[-24,0],[24,0]];
+
+/* Tegner hele kartet.
+   opts: tilstand, posisjoner (enhetId -> sted, overstyrer), piler [{fra,til,land,type}], fremhev Set(steder),
+         gyldige Set(steder), paaKlikk(sted), egneEnheter Set(enhetId), valgtEnhet */
+function tegnKart(svg, opts) {
+  const { tilstand } = opts;
+  svg.innerHTML = '';
+  const defs = ny('defs');
+  // Soldat fra kolonitida: tropehjelm, skuldre og gevær – silhuett i landets farge
+  const soldat = ny('symbol', { id:'ikon-soldat', viewBox:'0 0 20 22' });
+  soldat.append(ny('path', { d:'M4 7.2 Q4 1.2 10 1.2 Q16 1.2 16 7.2 Z', fill:'currentColor' }));                 // hjelmkuppel
+  soldat.append(ny('ellipse', { cx:10, cy:7.3, rx:8.2, ry:1.7, fill:'currentColor' }));                        // brem
+  soldat.append(ny('rect', { x:7.2, y:8.6, width:5.6, height:4.2, rx:2.2, fill:'currentColor' }));             // hode
+  soldat.append(ny('path', { d:'M3.2 22 L4.4 14.8 Q6.5 12.6 10 12.6 Q13.5 12.6 15.6 14.8 L16.8 22 Z', fill:'currentColor' })); // skuldre/uniform
+  soldat.append(ny('line', { x1:17.6, y1:3.5, x2:14.3, y2:21, stroke:'currentColor', 'stroke-width':1.7, 'stroke-linecap':'round' })); // gevær
+  soldat.append(ny('line', { x1:6.2, y1:17, x2:13.8, y2:17, stroke:'var(--papir)', 'stroke-width':1.1, opacity:.9 })); // belte
+  defs.append(soldat);
+  // Sivil stasjon: handels-/misjonsstasjon med tak, dør og flagg
+  const stasjon = ny('symbol', { id:'ikon-stasjon', viewBox:'0 0 20 22' });
+  stasjon.append(ny('rect', { x:3.5, y:11, width:13, height:10, fill:'var(--papir)', stroke:'currentColor', 'stroke-width':1.6 }));
+  stasjon.append(ny('path', { d:'M1.5 11.5 L10 3.5 L18.5 11.5 Z', fill:'currentColor' }));                       // tak
+  stasjon.append(ny('rect', { x:8.3, y:14.5, width:3.4, height:6.5, fill:'currentColor' }));                     // dør
+  stasjon.append(ny('rect', { x:5, y:13.5, width:2.4, height:2.4, fill:'currentColor', opacity:.8 }));          // vindu
+  stasjon.append(ny('rect', { x:12.6, y:13.5, width:2.4, height:2.4, fill:'currentColor', opacity:.8 }));       // vindu
+  stasjon.append(ny('line', { x1:15.5, y1:6.5, x2:15.5, y2:0.6, stroke:'currentColor', 'stroke-width':1.3 }));   // flaggstang
+  stasjon.append(ny('path', { d:'M15.5 0.8 L19.5 2.3 L15.5 3.8 Z', fill:'currentColor' }));                     // flagg
+  defs.append(stasjon);
+  SPILLDATA.land.forEach(l => {
+    const m = ny('marker', { id:`pil-${l.id}`, viewBox:'0 0 10 10', refX:'9', refY:'5', markerWidth:'7', markerHeight:'7', orient:'auto-start-reverse' });
+    m.append(ny('path', { d:'M 0 0 L 10 5 L 0 10 z', fill:l.farge })); defs.append(m);
+  });
+  svg.append(defs);
+  const g0 = ny('g'), g1 = ny('g'), g2 = ny('g'), g3 = ny('g'), g4 = ny('g');
+  svg.append(g0, g1, g2, g3, g4);
+
+  g0.append(ny('rect', { x:0, y:0, width:1000, height:1100, fill:'var(--vann-flate)' }));
+  for (let lon=-20; lon<=50; lon+=10) g0.append(ny('line', { x1:P(0,lon).x, y1:0, x2:P(0,lon).x, y2:1100, stroke:'#B8C6C2', 'stroke-width':.7 }));
+  for (let lat=-30; lat<=30; lat+=10) g0.append(ny('line', { x1:0, y1:P(lat,0).y, x2:1000, y2:P(lat,0).y, stroke:'#B8C6C2', 'stroke-width':.7 }));
+  g0.append(ny('path', { d:glatt(KYST.map(([a,b])=>P(a,b))), fill:'var(--land)', stroke:'var(--blekk)', 'stroke-width':2.2 }));
+  g0.append(ny('path', { d:glatt(MADAGASKAR.map(([a,b])=>P(a,b))), fill:'var(--land)', stroke:'var(--blekk)', 'stroke-width':1.8 }));
+  const gN = P(33.6,11.8), gS = P(-35.4,19.2);
+  g0.append(ny('line', { x1:gN.x, y1:gN.y, x2:gN.x, y2:0, stroke:'var(--blekk)', 'stroke-width':4, 'stroke-dasharray':'14 10' }));
+  g0.append(ny('line', { x1:gS.x, y1:gS.y, x2:gS.x, y2:1100, stroke:'var(--blekk)', 'stroke-width':4, 'stroke-dasharray':'14 10' }));
+  const elv = ['juba','fashoda','khartoum','aswan','kairo'].map(id => BY[id]);
+  g0.append(ny('path', { d:'M '+elv.map(b=>`${b.x} ${b.y}`).join(' L '), fill:'none', stroke:'var(--vann)', 'stroke-width':2.6, opacity:.85, 'stroke-linejoin':'round' }));
+  const ps = P(31.3,32.3), su = P(29.9,32.6);
+  g0.append(ny('line', { x1:ps.x, y1:ps.y, x2:su.x, y2:su.y, stroke:'var(--vann)', 'stroke-width':3.5 }));
+  [['Vestlige havområde',P(27,-19)],['Østlige havområde',P(35.6,16)],['Vestlige havområde',P(-22,-14)],['Østlige havområde',P(-30,36)]]
+    .forEach(([t,p]) => { const x = ny('text', { x:p.x, y:p.y, class:'hav-etikett' }); x.textContent = t; g0.append(x); });
+
+  // Veier
+  SPILLDATA.veier.forEach(v => { if (v.status && v.status!=='bekreftet') return; const a=BY[v.fra], b=BY[v.til];
+    g1.append(ny('line', { x1:a.x, y1:a.y, x2:b.x, y2:b.y, stroke:'var(--blekk)', 'stroke-width':1.8, 'stroke-dasharray':'6 4', opacity:.75 })); });
+
+  // Sfærer og kolonier
+  if (tilstand) {
+    tilstand.kolonier.forEach(k => k.byer.forEach(by => g1.append(ny('circle', { cx:BY[by].x, cy:BY[by].y, r:19, fill:'none', stroke:LAND[k.land].farge, 'stroke-width':4, 'stroke-dasharray':'8 4', opacity:.85 }))));
+    tilstand.interessesfaerer.forEach(s => s.byer.forEach(by => g1.append(ny('circle', { cx:BY[by].x, cy:BY[by].y, r:17, fill:'none', stroke:LAND[s.land].farge, 'stroke-width':2.5, 'stroke-dasharray':'2 4', opacity:.9 }))));
+  }
+
+  // Byer
+  SPILLDATA.byer.forEach(by => {
+    const mk = tilstand?.militaerKontroll[by.id], ok = tilstand?.oekonomiskKontroll[by.id];
+    const erMaal = opts.gyldige?.has(by.id), fremhev = opts.fremhev?.has(by.id);
+    if (ok && ok.length) {
+      g2.append(ny('circle', { cx:by.x, cy:by.y, r:12, fill:LAND[ok[0]].farge, opacity:.35 }));
+      if (ok.length > 1) g2.append(ny('circle', { cx:by.x+8, cy:by.y-8, r:4, fill:LAND[ok[1]].farge }));
+    }
+    if (fremhev) g2.append(ny('circle', { cx:by.x, cy:by.y, r:9, fill:'none', stroke:'var(--varsel)', 'stroke-width':3, class:'fremhev' }));
+    const c = ny('circle', { cx:by.x, cy:by.y, r: by.base ? 8 : 6, class: opts.paaKlikk ? 'by-klikk' : '',
+      fill: by.base ? LAND[by.base].farge : (erMaal ? 'var(--varsel)' : 'var(--papir)'),
+      stroke: mk ? LAND[mk].farge : 'var(--blekk)', 'stroke-width': mk ? 4 : 2 });
+    if (opts.paaKlikk) c.addEventListener('click', () => opts.paaKlikk(by.id));
+    g2.append(c);
+    const pos = NAVN_POS[by.id] || { dx:10, dy:4 };
+    const t = ny('text', { x:by.x+pos.dx, y:by.y+pos.dy, class:'by-navn', 'text-anchor':pos.a||'start' }); t.textContent = by.navn; g2.append(t);
+  });
+  // Havsoner som mål
+  Object.entries(SJOPOS).forEach(([id, p]) => {
+    const erMaal = opts.gyldige?.has(id);
+    if (erMaal || opts.fremhev?.has(id)) {
+      const c = ny('circle', { cx:p.x, cy:p.y, r:16, fill: erMaal ? 'var(--varsel)' : 'none', stroke:'var(--vann)', 'stroke-width':3, class:'maal', opacity:.9 });
+      if (opts.paaKlikk) c.addEventListener('click', () => opts.paaKlikk(id));
+      g2.append(c);
+    }
+  });
+
+  // Piler (ordre)
+  (opts.piler||[]).forEach(p => {
+    const a = posFor(p.fra), b = posFor(p.til);
+    const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1, ux=dx/len, uy=dy/len;
+    g3.append(ny('line', { x1:a.x+ux*12, y1:a.y+uy*12, x2:b.x-ux*16, y2:b.y-uy*16, stroke:LAND[p.land].farge, 'stroke-width':3.2,
+      'stroke-dasharray': p.type==='stoett' ? '5 4' : 'none', 'marker-end':`url(#pil-${p.land})`, opacity:.95 }));
+  });
+
+  // Enheter
+  if (tilstand) {
+    const perSted = {};
+    tilstand.enheter.forEach(e => { const sted = opts.posisjoner?.[e.id] ?? e.sted; (perSted[sted] ??= []).push(e); });
+    for (const [sted, liste] of Object.entries(perSted)) {
+      const p = posFor(sted);
+      liste.forEach((e, i) => {
+        const [ox, oy] = KLYNGE[i % KLYNGE.length];
+        const egen = opts.egneEnheter?.has(e.id), valgt = opts.valgtEnhet === e.id;
+        const str = valgt ? 24 : 19, cx = p.x+ox, cy = p.y+oy;
+        const gr = ny('g', { style:`color:${LAND[e.land].farge};${egen ? 'cursor:pointer' : ''}` });
+        if (valgt) gr.append(ny('circle', { cx, cy, r:str*0.7, fill:'var(--varsel)', opacity:.55 }));
+        else if (egen) gr.append(ny('circle', { cx, cy, r:str*0.62, fill:'var(--papir)', opacity:.75 }));
+        gr.append(ny('use', { href:`#ikon-${e.type === 'militaer' ? 'soldat' : 'stasjon'}`, x:cx-str/2, y:cy-str*0.55, width:str, height:str*1.1 }));
+        gr.append(ny('rect', { x:cx-str/2, y:cy-str*0.55, width:str, height:str*1.1, fill:'transparent' })); // klikkflate
+        if (egen && opts.paaEnhet) gr.addEventListener('click', () => opts.paaEnhet(e.id));
+        g4.append(gr);
+      });
+    }
+  }
+}
+
+/* ---------- Startskjerm ---------- */
+document.querySelectorAll('.fane [data-fane]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.fane [data-fane]').forEach(x => x.classList.toggle('aktiv', x===b));
+  ['elev','laerer','skjerm'].forEach(f => vis(`#fane-${f}`, f === b.dataset.fane));
+  $('#start-feil').classList.add('skjult');
+}));
+function visLagringsstatus() {
+  const v = document.getElementById('lagring-varsel'); if (!v) return;
+  v.classList.remove('skjult', 'info', 'varsel', 'feilboks');
+  if (LAGRINGSMODUS === 'delt') { v.classList.add('skjult'); return; }
+  v.classList.add('varsel');
+  v.innerHTML = LAGRINGSMODUS === 'lokal-faner'
+    ? '<strong>Testmodus på denne maskinen.</strong> Databasen er ikke satt opp i denne fila ennå, så spillet deles bare mellom faner i denne nettleseren. Lim inn Supabase-adressen og -nøkkelen øverst i fila for å spille på flere maskiner.'
+    : '<strong>Begrenset testmodus.</strong> Databasen er ikke satt opp, og nettleseren tillater ikke lagring, så spillet finnes bare i dette vinduet.';
+}
+visLagringsstatus();
+
+$('#nytt-spill').addEventListener('click', async () => {
+  const pin = $('#ny-pin').value.trim();
+  if (pin.length < 4) return feil('PIN må ha minst fire tegn.');
+  const kode = lagKode();
+  const meta = { kode, pin, fase:'lobby', runde:1, faseStart:null, varighet:{ forhandling:300, ordre:300 }, maksRunder:10,
+                 poengTotal:{ storbritannia:0, frankrike:0, tyskland:0 }, opprettet:Date.now() };
+  const ok1 = await lagre(K.meta(kode), meta), ok2 = await lagre(K.tilstand(kode), MOTOR.nyTilstand());
+  if (!ok1 || !ok2) return feil(skrivefeil());
+  startSpill('laerer', kode, meta);
+});
+$('#laerer-inn').addEventListener('click', async () => {
+  const kode = $('#laerer-kode').value.trim().toUpperCase(), pin = $('#laerer-pin').value;
+  const meta = await hent(K.meta(kode));
+  if (!meta) return feil(ikkeFunnet());
+  if (meta.pin !== pin) return feil('Feil PIN.');
+  startSpill('laerer', kode, meta);
+});
+$('#skjerm-inn').addEventListener('click', async () => {
+  const kode = $('#skjerm-kode').value.trim().toUpperCase();
+  const meta = await hent(K.meta(kode));
+  if (!meta) return feil(ikkeFunnet());
+  startSpill('skjerm', kode, meta);
+});
+$('#elev-videre').addEventListener('click', async () => {
+  const kode = $('#elev-kode').value.trim().toUpperCase(), navn = $('#elev-navn').value.trim();
+  if (!navn) return feil('Skriv inn navnet ditt.');
+  const meta = await hent(K.meta(kode));
+  if (!meta) return feil(ikkeFunnet());
+  app.navn = navn; app.kode = kode; app.meta = meta;
+  const liste = $('#rolleliste'); liste.innerHTML = '';
+  const opptatt = {};
+  for (const k of await nokler(K.spillere(kode))) { const d = await hent(k); if (d) (opptatt[d.rolle] ??= []).push(d.navn); }
+  SPILLDATA.land.forEach(l => {
+    liste.append(el('h3', { style:`margin:12px 0 4px;color:${l.farge}` }, l.navn));
+    ROLLER.filter(r => r.land === l.id).forEach(r => {
+      const hvem = opptatt[r.id]?.length ? ` · ${opptatt[r.id].join(', ')}` : '';
+      liste.append(el('button', { class:'sek bred', style:'text-align:left;margin-top:4px', onclick: () => velgRolle(r.id) }, `${r.navn}${hvem}`));
+    });
+  });
+  vis('#elev-roller', true);
+});
+async function velgRolle(rolleId) {
+  const ok = await lagre(K.spiller(app.kode, rolleId, app.klient), { rolle:rolleId, navn:app.navn, tid:Date.now() });
+  if (!ok) return feil(skrivefeil());
+  startSpill('elev', app.kode, app.meta, rolleId);
+}
+
+/* ---------- Oppstart av spillvisning ---------- */
+async function startSpill(modus, kode, meta, rolleId) {
+  app.modus = modus; app.kode = kode; app.meta = meta; app.rolle = rolleId ? ROLLE[rolleId] : null;
+  vis('#start', false);
+  vis('#topp', true);
+  vis('#spill', modus !== 'skjerm');
+  vis('#skjerm', modus === 'skjerm');
+  $('#topp-kode').textContent = kode;
+  $('#topp-rolle').textContent = modus === 'laerer' ? 'Lærer / spilleder' : modus === 'skjerm' ? 'Storskjerm' : `${app.rolle.navn} · ${app.navn}`;
+  await oppfrisk(true);
+  if (app.teller) clearInterval(app.teller);
+  app.teller = setInterval(() => oppfrisk(false), modus === 'skjerm' ? 3000 : 5000);
+  setInterval(tegnTimer, 1000);
+  document.addEventListener('focusout', () => { if (app.utsattRender) { app.utsattRender = false; setTimeout(() => { if (!document.activeElement?.closest?.('#panel select, #panel input')) render(); }, 150); } });
+}
+
+/* ---------- Synkronisering ---------- */
+let oppfriskerNaa = false;
+async function oppfrisk(tvang) {
+  if (oppfriskerNaa) return; oppfriskerNaa = true;
+  try {
+    const meta = await hent(K.meta(app.kode)); if (!meta) return;
+    const faseSkifte = tvang || !app.meta || meta.fase !== app.meta.fase || meta.runde !== app.meta.runde;
+    const endret = faseSkifte || JSON.stringify(meta.poengTotal) !== JSON.stringify(app.meta.poengTotal);
+    app.meta = meta;
+    if (endret) {
+      app.tilstand = await hent(K.tilstand(app.kode));
+      app.resultat = meta.fase === 'avsloering' || meta.fase === 'ferdig' ? await hent(K.resultat(app.kode, meta.fase === 'ferdig' ? meta.runde : meta.runde)) : null;
+      if (meta.fase !== 'ordre') { app.valgtEnhet = null; }
+      if (['ordre','forhandling'].includes(meta.fase) && app.modus === 'elev') {
+        const lagret = await hent(K.ordre(app.kode, meta.runde, app.rolle.id));
+        app.ordreListe = lagret?.ordrer || [];
+        app.sistOrdreLagret = lagret?.av || null;
+        if (app.rolle.type === 'diplomat') { app.forslag = (await hent(K.forslag(app.kode, meta.runde, app.rolle.land))) || []; }
+      }
+    }
+    let noeNytt = endret;
+    if (meta.fase === 'avsloering') { const a = await hent(K.avsloering(app.kode)); if (JSON.stringify(a) !== JSON.stringify(app.avsl)) { app.avsl = a; noeNytt = true; } }
+    if (!endret && ['ordre','forhandling'].includes(meta.fase) && app.modus === 'elev') {
+      const lagret = await hent(K.ordre(app.kode, meta.runde, app.rolle.id));
+      if (lagret && lagret.av !== app.navn && lagret.tid > (app.sistLokalTid || 0)) { app.ordreListe = lagret.ordrer || []; app.sistOrdreLagret = lagret.av; app.sistLokalTid = lagret.tid; noeNytt = true; }
+      if (app.rolle.type === 'diplomat') { const f = (await hent(K.forslag(app.kode, meta.runde, app.rolle.land))) || []; if (JSON.stringify(f) !== JSON.stringify(app.forslag)) { app.forslag = f; noeNytt = true; } }
+    }
+    if (app.modus === 'laerer') {
+      if (meta.fase === 'ordre' || meta.fase === 'forhandling') {
+        const ordrer = {};
+        for (const k of await nokler(K.ordrer(app.kode, meta.runde))) { const d = await hent(k); if (d) ordrer[k.split(':').pop()] = d; }
+        const alleForslag = {};
+        for (const l of SPILLDATA.land) alleForslag[l.id] = (await hent(K.forslag(app.kode, meta.runde, l.id))) || [];
+        const avtaler = (await hent(K.avtaler(app.kode, meta.runde))) || tomAvtaler();
+        if (JSON.stringify([ordrer, alleForslag, avtaler]) !== JSON.stringify([app.ordrer, app.alleForslag, app.avtaler])) noeNytt = true;
+        app.ordrer = ordrer; app.alleForslag = alleForslag; app.avtaler = avtaler;
+      }
+      if (meta.fase === 'lobby' || tvang) {
+        const spillere = {};
+        for (const k of await nokler(K.spillere(app.kode))) { const d = await hent(k); if (d) (spillere[d.rolle] ??= []).push(d.navn); }
+        if (JSON.stringify(spillere) !== JSON.stringify(app.spillere)) noeNytt = true;
+        app.spillere = spillere;
+      }
+    }
+    // Ikke tegn om panelet mens brukeren står i en liste eller et felt, eller velger mål på kartet
+    const aktiv = document.activeElement;
+    const opptatt = (aktiv && ['SELECT','INPUT','TEXTAREA'].includes(aktiv.tagName) && aktiv.closest('#panel')) || (app.modus === 'elev' && app.velgerMaalFor);
+    if (noeNytt && !(opptatt && !faseSkifte)) render();
+    else if (noeNytt) app.utsattRender = true;
+  } finally { oppfriskerNaa = false; }
+}
+function tomAvtaler() { return { vennskapsavtaler:[], interessesfaerer:[], kolonier:[], suezSamtykke:[], baseInnpass:[], fellesOkkupasjon:[], sivilInnpass:[] }; }
+
+function tegnTimer() {
+  const t = $('#topp-timer'); const m = app.meta; if (!m) return;
+  if (!['forhandling','ordre'].includes(m.fase) || !m.faseStart) { t.textContent = ''; t.classList.remove('ute'); return; }
+  const rest = (m.faseStart + m.varighet[m.fase]*1000 - Date.now())/1000;
+  t.textContent = rest > 0 ? mmss(rest) : 'TIDEN ER UTE';
+  t.classList.toggle('ute', rest <= 0);
+  if (app.modus === 'skjerm') { /* storskjermen viser også timeren i headeren */ }
+}
+
+/* ---------- Render ---------- */
+function render() {
+  const m = app.meta;
+  $('#topp-fase').textContent = `Runde ${m.runde} · ${FASENAVN[m.fase] || m.fase}`;
+  tegnTimer();
+  if (app.modus === 'skjerm') return renderSkjerm();
+  if (app.modus === 'laerer') return renderLaerer();
+  return renderElev();
+}
+
+/* ====================== ELEV ====================== */
+function egneEnheter() { return new Set(app.rolle.enheter); }
+function ordreFor(enhetId) { return app.ordreListe.find(o => o.enhetId === enhetId) || { enhetId, type:'ingen' }; }
+function settOrdre(o) { app.ordreListe = app.ordreListe.filter(x => x.enhetId !== o.enhetId); if (o.type !== 'ingen') app.ordreListe.push(o); }
+const ALLE_TILLATELSER = { suezSamtykke:['frankrike','tyskland'], baseInnpass:SPILLDATA.byer.filter(b=>b.base).flatMap(b=>SPILLDATA.land.map(l=>({by:b.id,land:l.id}))) };
+function gyldigeMaal(enhetId, type) {
+  const alle = [...SPILLDATA.byer.map(b => b.id), ...Object.keys(SJOPOS)];
+  const ut = new Map(); // sted -> 'ok' | 'tillatelse'
+  alle.forEach(til => {
+    const o = { enhetId, type, til };
+    if (MOTOR.validerOrdre(app.tilstand, o, {}).gyldig) ut.set(til, 'ok');
+    else if (MOTOR.validerOrdre(app.tilstand, o, ALLE_TILLATELSER).gyldig) ut.set(til, 'tillatelse');
+  });
+  return ut;
+}
+function diplomatKanOrdre() { return app.rolle.type === 'diplomat' && REGJERINGSRUNDER.includes(app.meta.runde); }
+function styrbareEnheter() {
+  if (diplomatKanOrdre()) return app.tilstand.enheter.filter(e => e.land === app.rolle.land && e.type === 'militaer').map(e => e.id);
+  return app.rolle.enheter;
+}
+
+function renderElev() {
+  const m = app.meta, panel = $('#panel'); panel.innerHTML = '';
+  const t = app.tilstand;
+  const egne = new Set(styrbareEnheter());
+  const laast = m.fase !== 'ordre';
+  let gyldige = null, paaKlikk = null;
+  const valgt = app.valgtEnhet && egne.has(app.valgtEnhet) ? app.valgtEnhet : null;
+  const ordreValgt = valgt ? ordreFor(valgt) : null;
+  if (valgt && !laast && (app.velgerMaalFor === 'flytt' || app.velgerMaalFor === 'stoett')) {
+    const mal = gyldigeMaal(valgt, app.velgerMaalFor);
+    gyldige = new Set(mal.keys());
+    paaKlikk = sted => { if (!mal.has(sted)) return; settOrdre({ enhetId:valgt, type:app.velgerMaalFor, til:sted }); app.velgerMaalFor = null; lagreOrdrer(); renderElev(); };
+  }
+  const piler = laast ? [] : app.ordreListe.filter(o => o.til).map(o => ({ fra: t.enheter.find(e=>e.id===o.enhetId)?.sted, til:o.til, land:app.rolle.land, type:o.type })).filter(p=>p.fra);
+  tegnKart($('#kart'), { tilstand:t, egneEnheter:egne, valgtEnhet:valgt, gyldige, paaKlikk, piler,
+    paaEnhet: id => { app.valgtEnhet = id; app.velgerMaalFor = null; renderElev(); } });
+  $('#kart-status').textContent = laast ? (m.fase === 'forhandling' ? 'Forhandlingsfase: snakk med de andre. Ordre kan skrives i neste fase.' : m.fase === 'avsloering' ? 'Ordrene offentliggjøres – følg med på storskjermen.' : m.fase === 'lobby' ? 'Venter på at læreren starter spillet.' : '')
+    : (gyldige ? 'Klikk på målet i kartet (gule byer/havområder).' : 'Klikk på en av dine enheter i kartet, eller bruk listen til høyre.');
+
+  // Tegnforklaring
+  panel.append(el('div', { style:'font-size:12px;color:var(--blekk-svak);margin-bottom:8px;display:flex;gap:14px;align-items:center' },
+    el('span', { html:`<svg width="16" height="18" viewBox="0 0 20 22" style="vertical-align:-3px;color:${LAND[app.rolle.land].farge}"><use href="#ikon-soldat"/></svg> militær enhet` }),
+    el('span', { html:`<svg width="16" height="18" viewBox="0 0 20 22" style="vertical-align:-3px;color:${LAND[app.rolle.land].farge}"><use href="#ikon-stasjon"/></svg> sivil stasjon` }),
+    el('span', {}, 'Dine enheter har lys bakgrunn.')));
+  // Rollekort
+  panel.append(el('div', { class:`kort ${KORT[app.rolle.land]}` },
+    el('strong', {}, app.rolle.navn), el('div', { class:'merke' }, LAND[app.rolle.land].navn),
+    el('div', { style:'font-size:12.5px;margin-top:4px' }, app.rolle.type === 'diplomat'
+      ? 'Du forhandler avtaler. Bare avtaler mellom diplomater er bindende. I rundene 5, 6, 9 og 10 kan du gi direkte ordre til landets militære enheter.'
+      : app.rolle.type === 'militaer' ? 'Du leder to militære enheter. Stå-ordre gir militær kontroll. Husk: i rundene 5, 6, 9 og 10 må du følge regjeringens ordre.'
+      : 'Du leder én sivil stasjon. Stå-ordre gir økonomisk kontroll. Du kan ikke støtte andre.')));
+
+  if (REGJERINGSRUNDER.includes(m.runde) && m.fase !== 'lobby')
+    panel.append(el('div', { class:'varsel' }, `Runde ${m.runde}: regjeringskontroll. Diplomatenes ordre til militære enheter går foran offiserenes.`));
+
+  if (m.fase === 'ferdig') { panel.append(el('h2', {}, 'Sluttresultat')); panel.append(poengTabell(m.poengTotal, null)); return; }
+
+  // Ordre
+  if (app.rolle.type !== 'diplomat' || diplomatKanOrdre()) {
+    panel.append(el('h2', {}, laast ? 'Dine enheter' : 'Skriv ordre'));
+    if (m.fase === 'forhandling') panel.append(el('div', { class:'varsel' }, 'Fase 1: forhandlinger. Bruk tiden til å snakke med de andre – ordre til enhetene kan først skrives når læreren åpner fase 2.'));
+    styrbareEnheter().forEach(id => {
+      const e = t.enheter.find(x => x.id === id); if (!e) return;
+      const o = ordreFor(id);
+      const kort = el('div', { class:`kort ${KORT[e.land]} ${valgt===id?'valgt':''}`, style:'cursor:pointer', onclick: ev => { if (ev.target.closest('button, select, option, label, input')) return; if (app.valgtEnhet === id && app.velgerMaalFor) return; app.valgtEnhet = id; app.velgerMaalFor = null; renderElev(); } },
+        el('div', {}, el('strong', {}, enhetNavn(id)), e.venter ? el('span', { style:'color:var(--feil)' }, ' · uvirksom denne runden') : null),
+        el('div', { class:'merke' }, `Står i ${stedNavn(e.sted)}`),
+        el('div', { style:'margin-top:4px' }, laast ? `Ordre: ${ordreTekst(o)}` : `Ordre: ${ordreTekst(o)}`));
+      if (!laast && !e.venter) {
+        const knapper = el('div', { class:'rad', style:'margin-top:6px' },
+          el('button', { class:'liten '+(o.type==='staa'?'':'sek'), onclick:()=>{ settOrdre({enhetId:id,type:'staa'}); app.velgerMaalFor=null; lagreOrdrer(); renderElev(); } }, 'Stå'),
+          el('button', { class:'liten '+(o.type==='flytt'?'':'sek'), onclick:()=>{ app.valgtEnhet=id; app.velgerMaalFor='flytt'; renderElev(); } }, 'Flytt til…'));
+        if (e.type === 'militaer') knapper.append(el('button', { class:'liten '+(o.type==='stoett'?'':'sek'), onclick:()=>{ app.valgtEnhet=id; app.velgerMaalFor='stoett'; renderElev(); } }, 'Stå + støtt…'));
+        knapper.append(el('button', { class:'liten sek', onclick:()=>{ settOrdre({enhetId:id,type:'ingen'}); lagreOrdrer(); renderElev(); } }, 'Ingen'));
+        kort.append(knapper);
+        if (valgt === id && app.velgerMaalFor) {
+          const mal = gyldigeMaal(id, app.velgerMaalFor);
+          const sel = el('select', { onchange: ev => { if (!ev.target.value) return; settOrdre({ enhetId:id, type:app.velgerMaalFor, til:ev.target.value }); app.velgerMaalFor=null; lagreOrdrer(); renderElev(); } },
+            el('option', { value:'' }, `Velg mål for «${app.velgerMaalFor==='flytt'?'flytt til':'støtt flytting til'}» …`),
+            ...[...mal.entries()].sort((a,b)=>stedNavn(a[0]).localeCompare(stedNavn(b[0]),'nb')).map(([sted,st]) => el('option', { value:sted }, `${stedNavn(sted)}${st==='tillatelse'?' (krever tillatelse)':''}`)));
+          kort.append(el('label', {}, 'Eller velg fra listen:'), sel);
+          if (app.velgerMaalFor === 'stoett') kort.append(el('div', { style:'font-size:12px;color:var(--blekk-svak);margin-top:4px' }, 'Støtte teller bare når direkte styrker er like, og bare mot byer du selv kunne flyttet til.'));
+        }
+        if (o.til && gyldigeMaal(id, o.type).get(o.til) === 'tillatelse')
+          kort.append(el('div', { class:'varsel' }, 'Dette trekket krever en tillatelse (Suez-samtykke eller innpass i base) som diplomatene må ha avtalt denne runden. Uten tillatelse regnes ordren som ingen ordre.'));
+      }
+      panel.append(kort);
+    });
+    if (!laast) panel.append(el('div', { class:'info' }, app.sistOrdreLagret ? `Ordrene lagres automatisk. Sist lagret av ${app.sistOrdreLagret}.` : 'Ordrene lagres automatisk når du velger.'));
+  }
+
+  // Diplomat: forslag til avtaler
+  if (app.rolle.type === 'diplomat') {
+    panel.append(el('h2', {}, 'Avtaler og tillatelser'));
+    panel.append(el('div', { style:'font-size:12.5px;color:var(--blekk-svak);margin-bottom:6px' }, 'Skriv inn avtalene du har forhandlet fram. Motpartens diplomat må sende inn det samme, og læreren godkjenner før runden avgjøres — akkurat som underskriftene på ordrearket.'));
+    const avtalerAapne = ['forhandling','ordre'].includes(m.fase);
+    if (avtalerAapne) panel.append(avtaleSkjema());
+    app.forslag.forEach((f, i) => panel.append(el('div', { class:'kort' }, el('div', {}, forslagTekst(f)),
+      !avtalerAapne ? null : el('button', { class:'liten sek', style:'margin-top:6px', onclick: async () => { app.forslag.splice(i,1); await lagre(K.forslag(app.kode, m.runde, app.rolle.land), app.forslag); renderElev(); } }, 'Trekk tilbake'))));
+    if (!app.forslag.length) panel.append(el('div', { class:'merke' }, 'Ingen avtaler sendt inn denne runden.'));
+  }
+
+  // Poengstatus
+  panel.append(el('h2', {}, 'Poengstatus'));
+  panel.append(poengTabell(m.poengTotal, app.resultat?.poeng));
+  if (t.logg?.length) {
+    const siste = t.logg[t.logg.length-1];
+    panel.append(el('h2', {}, `Forrige runde (${siste.runde})`));
+    panel.append(el('ul', { class:'liste-stram', style:'font-size:12.5px' }, ...siste.hendelser.map(h => el('li', {}, pentHendelse(h)))));
+  }
+}
+async function lagreOrdrer() {
+  const tid = Date.now(); app.sistLokalTid = tid;
+  const ok = await lagre(K.ordre(app.kode, app.meta.runde, app.rolle.id), { ordrer:app.ordreListe, av:app.navn, tid, land:app.rolle.land, rolle:app.rolle.id });
+  app.sistOrdreLagret = ok ? app.navn : null;
+  if (!ok) { const p = document.getElementById('panel'); p.prepend(el('div', { class:'feilboks' }, 'Ordrene ble ikke lagret. ' + skrivefeil())); }
+}
+function pentHendelse(h) {
+  return h.replace(/\b([a-z]+_(?:mil|siv)_[a-z_0-9]+?)(?=:)/g, (m0) => enhetNavn(m0))
+          .replace(/\b(hav_vest|hav_oest_med|hav_oest_india)\b/g, m0 => SJONAVN[m0])
+          .replace(/\b([a-z_]+)\b/g, m0 => BY[m0] ? BY[m0].navn : m0);
+}
+
+/* Avtaleskjema for diplomater */
+function avtaleSkjema() {
+  const land = app.rolle.land, andre = SPILLDATA.land.filter(l => l.id !== land);
+  const boks = el('div', { class:'kort' });
+  const type = el('select', {}, el('option', { value:'vennskap' }, 'Vennskapsavtale'), el('option', { value:'sfaere' }, 'Interessesfære'), el('option', { value:'koloni' }, 'Koloni'), el('option', { value:'tillatelse' }, 'Tillatelse'));
+  const felt = el('div');
+  const byvalg = (maks) => { const s = el('select', { multiple:'', size:'5' }, ...SPILLDATA.byer.filter(b=>!b.base).sort((a,b)=>a.navn.localeCompare(b.navn,'nb')).map(b => el('option', { value:b.id }, b.navn))); s.dataset.maks = maks; return s; };
+  const landvalg = (alleLand) => el('select', {}, ...(alleLand ? SPILLDATA.land : andre).map(l => el('option', { value:l.id }, l.navn)));
+  function bygg() {
+    felt.innerHTML = '';
+    const v = type.value;
+    if (v === 'vennskap') felt.append(el('label', {}, 'Med'), landvalg(false), el('label', {}, 'Spesifisert forpliktelse (valgfritt)'), el('input', { id:'f-tekst', placeholder:'f.eks. militær støtte til flytting mot Sokoto' }));
+    if (v === 'sfaere') felt.append(el('label', {}, 'Sfæren tilfaller'), landvalg(true), el('label', {}, 'By(er), én eller to nærliggende'), byvalg(2), el('label', {}, 'Medundertegner'), landvalg(false));
+    if (v === 'koloni') felt.append(el('label', {}, 'Kolonien tilfaller'), landvalg(true), el('label', {}, 'Byer (maks 2 bilateralt, maks 4 trilateralt)'), byvalg(4), el('label', {}, el('input', { type:'checkbox', id:'f-tri', style:'width:auto;margin-right:6px' }), 'Trilateral traktat (alle tre land)'), el('label', {}, 'Medundertegner (ved bilateral)'), landvalg(false));
+    if (v === 'tillatelse') felt.append(el('label', {}, 'Type'), el('select', { id:'f-ttype' }, el('option', { value:'suez' }, 'Britisk Suez-samtykke til …'), el('option', { value:'base' }, 'Innpass i egen base for …'), el('option', { value:'felles' }, 'Felles okkupasjon av by med …'), el('option', { value:'sivil' }, 'Sivilt innpass i militært kontrollert by for …')),
+      el('label', {}, 'Til land'), landvalg(false), el('label', {}, 'By (der det gjelder)'), el('select', {}, el('option', { value:'' }, '—'), ...SPILLDATA.byer.slice().sort((a,b)=>a.navn.localeCompare(b.navn,'nb')).map(b => el('option', { value:b.id }, b.navn))));
+  }
+  type.addEventListener('change', bygg); bygg();
+  const send = el('button', { class:'bred', onclick: async () => {
+    const sel = felt.querySelectorAll('select'), v = type.value; let f;
+    if (v === 'vennskap') f = { type:'vennskap', land:[land, sel[0].value], tekst:felt.querySelector('#f-tekst').value.trim(), fra:land };
+    if (v === 'sfaere') { const byer=[...sel[1].selectedOptions].map(o=>o.value); if (!byer.length||byer.length>2) return alert('Velg én eller to byer.'); f = { type:'sfaere', land:sel[0].value, byer, signert:[...new Set([land, sel[2].value, sel[0].value])], fra:land }; }
+    if (v === 'koloni') { const byer=[...sel[1].selectedOptions].map(o=>o.value), tri=felt.querySelector('#f-tri').checked; if (!byer.length||byer.length>(tri?4:2)) return alert(tri?'Maks fire byer.':'Maks to byer ved bilateral traktat.'); f = { type:'koloni', land:sel[0].value, byer, trilateral:tri, signertAv: tri ? SPILLDATA.land.map(l=>l.id) : [...new Set([land, sel[2].value, sel[0].value])], fra:land }; }
+    if (v === 'tillatelse') { const tt = felt.querySelector('#f-ttype').value; f = { type:'tillatelse', hva:tt, land:sel[1].value, by:sel[2].value||null, fra:land }; if (tt==='suez' && land!=='storbritannia') return alert('Bare Storbritannia kan gi Suez-samtykke.'); if (['base','felles','sivil'].includes(tt) && !f.by) return alert('Velg by.'); }
+    app.forslag.push(f); await lagre(K.forslag(app.kode, app.meta.runde, land), app.forslag); renderElev();
+  } }, 'Send inn til læreren');
+  boks.append(el('label', {}, 'Avtaletype'), type, felt, send);
+  return boks;
+}
+function forslagTekst(f) {
+  const L = id => LAND[id]?.navn || id, B = ids => ids.map(stedNavn).join(' + ');
+  if (f.type === 'vennskap') return `Vennskapsavtale ${L(f.land[0])} – ${L(f.land[1])}${f.tekst ? ` (spesifisert: ${f.tekst})` : ''}`;
+  if (f.type === 'sfaere') return `Interessesfære ${B(f.byer)} → ${L(f.land)} (undertegnet av ${f.signert.map(L).join(', ')})`;
+  if (f.type === 'koloni') return `${f.trilateral?'Trilateral':'Bilateral'} koloni ${B(f.byer)} → ${L(f.land)} (undertegnet av ${f.signertAv.map(L).join(', ')})`;
+  if (f.type === 'tillatelse') return { suez:`Suez-samtykke til ${L(f.land)}`, base:`Innpass i ${stedNavn(f.by)} for ${L(f.land)}`, felles:`Felles okkupasjon av ${stedNavn(f.by)}: ${L(f.fra)} og ${L(f.land)}`, sivil:`Sivilt innpass i ${stedNavn(f.by)} for ${L(f.land)}` }[f.hva];
+  return JSON.stringify(f);
+}
+
+function poengTabell(total, runde) {
+  const tab = el('table', { class:'poengtabell' }, el('tr', {}, el('th', {}, 'Land'), runde ? el('th', {}, 'Runden') : null, el('th', {}, 'Totalt')));
+  SPILLDATA.land.forEach(l => tab.append(el('tr', {}, el('td', {}, el('span', { class:'landflekk', style:`background:${l.farge}` }), l.navn), runde ? el('td', {}, runde[l.id]?.sum ?? 0) : null, el('td', {}, el('strong', {}, total[l.id] ?? 0)))));
+  return tab;
+}
+
+/* ====================== LÆRER ====================== */
+function renderLaerer() {
+  const m = app.meta, panel = $('#panel'); panel.innerHTML = '';
+  const t = app.tilstand;
+  const piler = m.fase === 'ordre' ? Object.values(app.ordrer).flatMap(d => d.ordrer.filter(o=>o.til).map(o => ({ fra:t.enheter.find(e=>e.id===o.enhetId)?.sted, til:o.til, land:d.land, type:o.type })).filter(p=>p.fra)) : [];
+  tegnKart($('#kart'), { tilstand:t, piler });
+  $('#kart-status').textContent = m.fase === 'ordre' ? 'Pilene viser ordrene som er kommet inn (kun synlig for deg).' : '';
+
+  // Fasestyring
+  panel.append(el('h2', {}, `Runde ${m.runde} av ${m.maksRunder}`));
+  if (m.fase === 'lobby') {
+    panel.append(el('div', { class:'info' }, el('strong', {}, `Spillkode: ${m.kode}`), ' — elevene skriver koden inn og velger rolle. Storskjermen bruker samme kode.'));
+    panel.append(el('h2', {}, 'Påmeldte'));
+    SPILLDATA.land.forEach(l => {
+      panel.append(el('h3', { style:`color:${l.farge};margin-top:8px;font-size:14px` }, l.navn));
+      ROLLER.filter(r=>r.land===l.id).forEach(r => panel.append(el('div', { style:'font-size:13px;padding:2px 0' }, `${r.navn}: `, el('span', { style: app.spillere?.[r.id] ? '' : 'color:var(--feil)' }, app.spillere?.[r.id]?.join(', ') || 'ingen'))));
+    });
+    panel.append(el('label', {}, 'Antall runder (6–10)'), el('input', { type:'number', min:6, max:10, value:m.maksRunder, onchange: async ev => { m.maksRunder = Math.min(10, Math.max(6, +ev.target.value||10)); await lagre(K.meta(app.kode), m); } }));
+    panel.append(el('div', { class:'rad' }, el('div', {}, el('label', {}, 'Forhandling (min)'), el('input', { type:'number', min:1, max:20, value:m.varighet.forhandling/60, onchange: async ev => { m.varighet.forhandling = (+ev.target.value||5)*60; await lagre(K.meta(app.kode), m); } })), el('div', {}, el('label', {}, 'Ordre (min)'), el('input', { type:'number', min:1, max:20, value:m.varighet.ordre/60, onchange: async ev => { m.varighet.ordre = (+ev.target.value||5)*60; await lagre(K.meta(app.kode), m); } }))));
+    panel.append(el('button', { class:'bred', onclick: () => settFase('forhandling') }, 'Start runde 1: forhandlinger'));
+    return;
+  }
+  if (m.fase === 'ferdig') {
+    panel.append(el('h2', {}, 'Sluttresultat')); panel.append(poengTabell(m.poengTotal, null));
+    panel.append(el('div', { class:'info' }, 'Vinneren er landet med flest poeng totalt (s. 4). Bruk kartet og loggen til debrief: hvem samarbeidet, hvem ble spilt ut mot hverandre, og hva skjedde med byene?'));
+    panel.append(justerPoeng());
+    return;
+  }
+
+  if (REGJERINGSRUNDER.includes(m.runde)) panel.append(el('div', { class:'varsel' }, `Runde ${m.runde}: regjeringskontroll — diplomatenes ordre til militære enheter går foran offiserenes (s. 9, 14–15).`));
+
+  if (m.fase === 'forhandling') {
+    panel.append(el('div', { class:'info' }, 'Forhandlingsfase. Alle kan snakke med alle. Når tiden er ute: full stillhet, og du går til ordrefasen. Elevene kan ikke skrive troppeordre før da, men diplomatene kan sende inn avtaler underveis.'));
+    const antForslag = SPILLDATA.land.reduce((s,l) => s + (app.alleForslag?.[l.id]?.length || 0), 0);
+    if (antForslag) panel.append(el('div', { class:'varsel' }, `${antForslag} avtaleforslag er kommet inn – du godkjenner dem i ordrefasen.`));
+    panel.append(el('button', { class:'bred', onclick: () => settFase('ordre') }, 'Tiden er ute → skriving av ordre'));
+    panel.append(el('button', { class:'bred sek', onclick: () => settFase('forhandling') }, 'Start timeren på nytt'));
+  }
+
+  if (m.fase === 'ordre') {
+    // Innkomne ordre
+    panel.append(el('h2', {}, 'Innkomne ordre'));
+    SPILLDATA.land.forEach(l => {
+      panel.append(el('h3', { style:`color:${l.farge};margin-top:8px;font-size:14px` }, l.navn));
+      ROLLER.filter(r => r.land===l.id && (r.type!=='diplomat' || REGJERINGSRUNDER.includes(m.runde))).forEach(r => {
+        const d = app.ordrer[r.id];
+        panel.append(el('div', { style:'font-size:13px;padding:3px 0;border-bottom:1px dotted var(--linje)' }, el('strong', {}, r.navn), d ? el('span', { style:'color:var(--ok)' }, ` ✔ ${d.av}`) : el('span', { style:'color:var(--feil)' }, ' – venter'),
+          d ? el('div', { style:'font-size:12px;color:var(--blekk-svak)' }, d.ordrer.length ? d.ordrer.map(o => `${enhetNavn(o.enhetId).replace(/^.*?s /,'')}: ${ordreTekst(o)}`).join(' · ') : 'ingen ordre') : null));
+      });
+    });
+
+    // Avtaler
+    panel.append(el('h2', {}, 'Avtaler denne runden'));
+    panel.append(el('div', { style:'font-size:12.5px;color:var(--blekk-svak)' }, 'Godkjenn forslag fra diplomatene når begge parter har sendt inn det samme. Godkjente avtaler gjelder når runden avgjøres.'));
+    const a = app.avtaler;
+    const godkjente = [];
+    a.vennskapsavtaler.forEach((x,i) => godkjente.push([`Vennskapsavtale ${x.land.map(id=>LAND[id].navn).join(' – ')}`, () => a.vennskapsavtaler.splice(i,1)]));
+    a.interessesfaerer.forEach((x,i) => godkjente.push([`Interessesfære ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => a.interessesfaerer.splice(i,1)]));
+    a.kolonier.forEach((x,i) => godkjente.push([`Koloni ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => a.kolonier.splice(i,1)]));
+    a.suezSamtykke.forEach((x,i) => godkjente.push([`Suez-samtykke: ${LAND[x].navn}`, () => a.suezSamtykke.splice(i,1)]));
+    a.baseInnpass.forEach((x,i) => godkjente.push([`Innpass i ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => a.baseInnpass.splice(i,1)]));
+    a.fellesOkkupasjon.forEach((x,i) => godkjente.push([`Felles okkupasjon ${stedNavn(x.by)}: ${x.land.map(id=>LAND[id].navn).join(' + ')}`, () => a.fellesOkkupasjon.splice(i,1)]));
+    a.sivilInnpass.forEach((x,i) => godkjente.push([`Sivilt innpass ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => a.sivilInnpass.splice(i,1)]));
+    if (godkjente.length) panel.append(el('div', { class:'kort' }, el('strong', {}, 'Godkjent:'), ...godkjente.map(([tekst, fjern]) => el('div', { class:'rad', style:'margin-top:4px' }, el('span', { style:'flex:3' }, tekst), el('button', { class:'liten sek', style:'flex:0', onclick: async () => { fjern(); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Fjern')))));
+    SPILLDATA.land.forEach(l => (app.alleForslag?.[l.id]||[]).forEach(f => panel.append(el('div', { class:`kort ${KORT[l.id]}` },
+      el('div', { class:'merke' }, `Forslag fra ${l.navn}`), el('div', {}, forslagTekst(f)),
+      el('button', { class:'liten', style:'margin-top:6px', onclick: async () => { godkjenn(f); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Godkjenn')))));
+
+    const antall = Object.keys(app.ordrer).length, forventet = ROLLER.filter(r => r.type!=='diplomat').length;
+    panel.append(el('div', { class: antall < forventet ? 'varsel' : 'info' }, `${antall} av ${forventet} ordreark er levert. Ordre som ikke er levert regnes som «ingen ordre» (s. 5).`));
+    panel.append(el('button', { class:'bred', onclick: avgjoerRunden }, 'Tiden er ute → avgjør runden'));
+    panel.append(el('button', { class:'bred sek', onclick: () => settFase('ordre') }, 'Start timeren på nytt'));
+  }
+
+  if (m.fase === 'avsloering') {
+    const steg = byggSteg(app.resultat), i = app.avsl?.steg ?? 0;
+    panel.append(el('div', { class:'info' }, 'Offentliggjøring på storskjermen. Les gjerne ordrene høyt slik originalen legger opp til — elevene skal være helt stille.'));
+    panel.append(el('div', { class:'kort' }, el('div', { class:'merke' }, `Steg ${i+1} av ${steg.length}`), el('div', { style:'margin-top:4px' }, steg[i]?.tekst || '')));
+    panel.append(el('div', { class:'rad' },
+      el('button', { class:'sek', disabled: i<=0 ? '' : null, onclick: () => settSteg(i-1) }, '← Forrige'),
+      el('button', { disabled: i>=steg.length-1 ? '' : null, onclick: () => settSteg(i+1) }, 'Neste →')));
+    panel.append(el('button', { class:'bred sek', onclick: () => settSteg(steg.length-1) }, 'Hopp til poengene'));
+    panel.append(el('h2', {}, 'Poeng denne runden'));
+    panel.append(poengTabell(m.poengTotal, app.resultat?.poeng));
+    panel.append(justerPoeng());
+    if (m.runde >= m.maksRunder) panel.append(el('button', { class:'bred', onclick: avsluttSpill }, 'Avslutt spillet og vis sluttresultat'));
+    else panel.append(el('button', { class:'bred', onclick: nesteRunde }, `Start runde ${m.runde+1}: forhandlinger`));
+    if (m.runde >= 6 && m.runde < m.maksRunder) panel.append(el('button', { class:'bred sek', onclick: avsluttSpill }, 'Avslutt spillet nå (minimum seks runder er spilt)'));
+  }
+
+  panel.append(el('h2', {}, 'Poengstatus'));
+  panel.append(poengTabell(m.poengTotal, null));
+  if (m.fase !== 'avsloering') panel.append(justerPoeng());
+}
+function godkjenn(f) {
+  const a = app.avtaler;
+  if (f.type === 'vennskap') a.vennskapsavtaler.push({ land:f.land, tekst:f.tekst });
+  if (f.type === 'sfaere') a.interessesfaerer.push({ land:f.land, byer:f.byer, signert:f.signert });
+  if (f.type === 'koloni') a.kolonier.push({ land:f.land, byer:f.byer, trilateral:f.trilateral, signertAv:f.signertAv });
+  if (f.type === 'tillatelse') {
+    if (f.hva === 'suez' && !a.suezSamtykke.includes(f.land)) a.suezSamtykke.push(f.land);
+    if (f.hva === 'base') a.baseInnpass.push({ by:f.by, land:f.land });
+    if (f.hva === 'felles') a.fellesOkkupasjon.push({ by:f.by, land:[f.fra, f.land] });
+    if (f.hva === 'sivil') a.sivilInnpass.push({ by:f.by, land:f.land });
+  }
+}
+function justerPoeng() {
+  const boks = el('details', { style:'margin-top:8px;font-size:13px' }, el('summary', {}, 'Juster poeng manuelt (minuspoeng, s. 5)'));
+  SPILLDATA.land.forEach(l => boks.append(el('div', { class:'rad', style:'margin-top:4px' }, el('span', {}, l.navn), el('input', { type:'number', value:0, id:`just-${l.id}`, style:'max-width:80px' }),
+    el('button', { class:'liten', onclick: async () => { const v = +$(`#just-${l.id}`).value||0; app.meta.poengTotal[l.id] += v; await lagre(K.meta(app.kode), app.meta); renderLaerer(); } }, 'Legg til'))));
+  return boks;
+}
+async function settFase(fase) {
+  const m = app.meta; m.fase = fase; m.faseStart = Date.now();
+  await lagre(K.meta(app.kode), m); await oppfrisk(true);
+}
+async function settSteg(i) { await lagre(K.avsloering(app.kode), { runde:app.meta.runde, steg:i }); app.avsl = { runde:app.meta.runde, steg:i }; render(); }
+async function nesteRunde() {
+  const m = app.meta; m.runde += 1; m.fase = 'forhandling'; m.faseStart = Date.now();
+  await lagre(K.meta(app.kode), m); await oppfrisk(true);
+}
+async function avsluttSpill() {
+  const m = app.meta; m.fase = 'ferdig'; await lagre(K.meta(app.kode), m); await oppfrisk(true);
+}
+
+/* Avgjør runden: kjør regelmotoren på lærerens maskin og publiser resultatet */
+async function avgjoerRunden() {
+  const m = app.meta;
+  await oppfrisk(true); // hent siste ordre
+  const t = app.tilstand;
+  // Slå sammen ordre: offiserer/sivile først, diplomater overstyrer i regjeringsrunder
+  const alle = {};
+  Object.values(app.ordrer).filter(d => !d.rolle.endsWith('_dip')).forEach(d => d.ordrer.forEach(o => alle[o.enhetId] = o));
+  if (REGJERINGSRUNDER.includes(m.runde)) Object.values(app.ordrer).filter(d => d.rolle.endsWith('_dip')).forEach(d => d.ordrer.forEach(o => alle[o.enhetId] = o));
+  const ordrer = Object.values(alle);
+  const foer = {}; t.enheter.forEach(e => foer[e.id] = e.sted);
+  const res = MOTOR.avgjoerRunde(t, ordrer, app.avtaler || tomAvtaler());
+  const etter = {}; res.tilstand.enheter.forEach(e => etter[e.id] = e.sted);
+  const ordrerPerLand = {}; SPILLDATA.land.forEach(l => ordrerPerLand[l.id] = ordrer.filter(o => o.enhetId.startsWith(l.id + '_')));
+  SPILLDATA.land.forEach(l => m.poengTotal[l.id] += res.poeng[l.id].sum);
+  const resultat = { runde:m.runde, ordrerPerLand, hendelser:res.hendelser, poeng:res.poeng, foer, etter, avtaler:app.avtaler, poengTotal:{ ...m.poengTotal },
+    kontrollFoer:{ militaerKontroll:t.militaerKontroll, oekonomiskKontroll:t.oekonomiskKontroll, interessesfaerer:t.interessesfaerer, kolonier:t.kolonier } };
+  await lagre(K.resultat(app.kode, m.runde), resultat);
+  await lagre(K.tilstand(app.kode), res.tilstand);
+  await lagre(K.avsloering(app.kode), { runde:m.runde, steg:0 });
+  m.fase = 'avsloering'; m.faseStart = null;
+  await lagre(K.meta(app.kode), m);
+  await oppfrisk(true);
+}
+
+/* ====================== OFFENTLIGGJØRING ====================== */
+/* Steg: intro → ordrene land for land → hver hendelse (med enheter som flytter) → poeng */
+function byggSteg(r) {
+  if (!r) return [{ tekst:'Venter på resultatet …', posisjoner:null }];
+  const steg = [];
+  steg.push({ overskrift:`Runde ${r.runde}`, tekst:'Ordrene offentliggjøres. Full stillhet i lagene.', posisjoner:r.foer, piler:[] });
+  SPILLDATA.land.forEach(l => {
+    const o = r.ordrerPerLand[l.id] || [];
+    const piler = o.filter(x => x.til).map(x => ({ fra:r.foer[x.enhetId], til:x.til, land:l.id, type:x.type }));
+    steg.push({ overskrift:`${l.navn}s ordre`, tekst: o.length ? o.map(x => `${enhetNavnMedTilstand(x.enhetId, r)}: ${ordreTekst(x)}.`).join(' ') : 'Ingen ordre levert.', posisjoner:r.foer, piler, land:l.id });
+  });
+  // Avtaler
+  const a = r.avtaler; const avt = [];
+  if (a) { a.vennskapsavtaler?.forEach(x => avt.push(`Vennskapsavtale mellom ${x.land.map(id=>LAND[id].navn).join(' og ')}.`)); a.suezSamtykke?.forEach(x => avt.push(`Storbritannia gir ${LAND[x].navn} samtykke til å bruke Suezkanalen.`)); }
+  if (avt.length) steg.push({ overskrift:'Avtaler', tekst:avt.join(' '), posisjoner:r.foer, piler:[] });
+  // Hendelser – flytt enheter etter hvert
+  const pos = { ...r.foer };
+  r.hendelser.forEach(h => {
+    const m1 = h.match(/^([a-z_0-9]+): ([a-z_]+) → ([a-z_]+)$/);
+    if (m1) pos[m1[1]] = m1[3];
+    const m2 = h.match(/^([a-z_0-9]+): .*returnerer til basen ([a-z_]+)/);
+    if (m2) pos[m2[1]] = m2[2];
+    const fremhev = new Set([...h.matchAll(/\b([a-z_]+)\b/g)].map(x => x[1]).filter(x => BY[x] || SJOPOS[x]));
+    steg.push({ overskrift:'Avgjørelse', tekst:pentHendelseR(h, r), posisjoner:{ ...pos }, fremhev, piler:[] });
+  });
+  const oppsummering = SPILLDATA.land.map(l => `${l.navn}: ${r.poeng[l.id].sum} poeng denne runden (totalt ${r.poengTotal[l.id]})`).join(' · ');
+  steg.push({ overskrift:`Poeng etter runde ${r.runde}`, tekst:oppsummering, posisjoner:r.etter, piler:[], poeng:true });
+  return steg;
+}
+function enhetNavnMedTilstand(id, r) {
+  const [land, type, ...rest] = id.split('_'); const base = rest.filter(x => !/^\d$/.test(x)).join('_');
+  return type === 'mil' ? `${id.endsWith('_1')?'1.':'2.'} militære enhet fra ${stedNavn(base)} (står i ${stedNavn(r.foer[id])})` : `sivil stasjon fra ${stedNavn(base)} (står i ${stedNavn(r.foer[id])})`;
+}
+function pentHendelseR(h, r) {
+  return h.replace(/\b([a-z]+_(?:mil|siv)_[a-z_0-9]+?)(?=:)/g, id => { const l = id.split('_')[0]; return `${LAND[l]?.navn || l}s ${enhetNavnMedTilstand(id, r).replace(/ \(står.*\)$/, '')}`; })
+          .replace(/\b(hav_vest|hav_oest_med|hav_oest_india)\b/g, m0 => SJONAVN[m0])
+          .replace(/\b([a-z_]+)\b/g, m0 => BY[m0] ? BY[m0].navn : m0);
+}
+
+function renderSkjerm() {
+  const m = app.meta, svg = $('#kart-skjerm'), tekst = $('#skjerm-tekst');
+  if (m.fase === 'avsloering' && app.resultat) {
+    const steg = byggSteg(app.resultat), i = Math.min(app.avsl?.steg ?? 0, steg.length-1), s = steg[i];
+    // Tilstanden på kartet: kontroll fra FØR runden inntil poengsteget, så etter
+    const visTilstand = s.poeng ? app.tilstand : { ...app.tilstand, ...(app.resultat.kontrollFoer || {}) };
+    tegnKart(svg, { tilstand:visTilstand, posisjoner:s.posisjoner, piler:s.piler, fremhev:s.fremhev });
+    tekst.innerHTML = '';
+    tekst.append(el('small', {}, `${s.overskrift || ''} · steg ${i+1} av ${steg.length}`), s.tekst);
+    return;
+  }
+  tegnKart(svg, { tilstand:app.tilstand });
+  tekst.innerHTML = '';
+  if (m.fase === 'lobby') tekst.append(el('small', {}, 'Kampen om Afrika'), `Spillkode: ${m.kode}. Skriv koden inn og velg rolle.`);
+  else if (m.fase === 'forhandling') tekst.append(el('small', {}, `Runde ${m.runde} · fase 1`), 'Forhandlinger. Alle kan snakke med alle — men bare avtaler mellom diplomater er bindende.');
+  else if (m.fase === 'ordre') tekst.append(el('small', {}, `Runde ${m.runde} · fase 2`), 'Skriving av ordre. Uklare ordre regnes som ingen ordre.');
+  else if (m.fase === 'ferdig') { const vinner = SPILLDATA.land.slice().sort((a,b)=>m.poengTotal[b.id]-m.poengTotal[a.id]); tekst.append(el('small', {}, 'Spillet er slutt'), vinner.map((l,i)=>`${i+1}. ${l.navn} ${m.poengTotal[l.id]} poeng`).join(' · ')); }
+}
+</script>
+
+
+</body>
+</html>
