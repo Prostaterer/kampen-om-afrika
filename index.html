@@ -1633,9 +1633,11 @@ function renderLaerer() {
     a.fellesOkkupasjon.forEach((x,i) => godkjente.push([`Felles okkupasjon ${stedNavn(x.by)}: ${x.land.map(id=>LAND[id].navn).join(' + ')}`, () => a.fellesOkkupasjon.splice(i,1)]));
     a.sivilInnpass.forEach((x,i) => godkjente.push([`Sivilt innpass ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => a.sivilInnpass.splice(i,1)]));
     if (godkjente.length) panel.append(el('div', { class:'kort' }, el('strong', {}, 'Godkjent:'), ...godkjente.map(([tekst, fjern]) => el('div', { class:'rad', style:'margin-top:4px' }, el('span', { style:'flex:3' }, tekst), el('button', { class:'liten sek', style:'flex:0', onclick: async () => { fjern(); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Fjern')))));
-    SPILLDATA.land.forEach(l => (app.alleForslag?.[l.id]||[]).forEach(f => panel.append(el('div', { class:`kort ${KORT[l.id]}` },
-      el('div', { class:'merke' }, `Forslag fra ${l.navn}`), el('div', {}, forslagTekst(f)),
-      el('button', { class:'liten', style:'margin-top:6px', onclick: async () => { godkjenn(f); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Godkjenn')))));
+    let antallVenter = 0;
+    SPILLDATA.land.forEach(l => (app.alleForslag?.[l.id]||[]).filter(f => !erGodkjent(f)).forEach(f => { antallVenter++; const motpart = SPILLDATA.land.some(l2 => l2.id !== l.id && (app.alleForslag?.[l2.id]||[]).some(f2 => sammeAvtale(f, f2))); panel.append(el('div', { class:`kort ${KORT[l.id]}` },
+      el('div', { class:'merke' }, `Forslag fra ${l.navn}${motpart ? ' · også sendt inn av motparten' : ''}`), el('div', {}, forslagTekst(f)),
+      el('button', { class:'liten', style:'margin-top:6px', onclick: async () => { godkjenn(f); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Godkjenn'))); }));
+    if (!antallVenter) panel.append(el('div', { class:'merke', style:'padding:6px 0' }, 'Ingen forslag venter på godkjenning.'));
 
     const antall = Object.keys(app.ordrer).length, forventet = ROLLER.filter(r => r.type!=='diplomat').length;
     panel.append(el('div', { class: antall < forventet ? 'varsel' : 'info' }, `${antall} av ${forventet} ordreark er levert. Ordre som ikke er levert regnes som «ingen ordre» (s. 5).`));
@@ -1715,7 +1717,31 @@ function bonusPanel() {
   });
   return boks;
 }
+/* To forslag gjelder samme avtale (uavhengig av hvem som sendte dem inn) */
+function avtaleNokkel(f) {
+  const s = x => [...x].sort().join('+');
+  if (f.type === 'vennskap') return `v|${s(f.land)}`;
+  if (f.type === 'sfaere') return `s|${f.land}|${s(f.byer)}`;
+  if (f.type === 'koloni') return `k|${f.land}|${s(f.byer)}`;
+  if (f.type === 'tillatelse') return f.hva === 'suez' ? `t|suez|${f.land}` : f.hva === 'felles' ? `t|felles|${f.by}|${s([f.fra, f.land])}` : `t|${f.hva}|${f.by}|${f.land}`;
+  return JSON.stringify(f);
+}
+function sammeAvtale(f1, f2) { return avtaleNokkel(f1) === avtaleNokkel(f2); }
+function erGodkjent(f) {
+  const a = app.avtaler || tomAvtaler(), s = x => [...x].sort().join('+');
+  if (f.type === 'vennskap') return a.vennskapsavtaler.some(x => s(x.land) === s(f.land));
+  if (f.type === 'sfaere') return a.interessesfaerer.some(x => x.land === f.land && s(x.byer) === s(f.byer));
+  if (f.type === 'koloni') return a.kolonier.some(x => x.land === f.land && s(x.byer) === s(f.byer));
+  if (f.type === 'tillatelse') {
+    if (f.hva === 'suez') return a.suezSamtykke.includes(f.land);
+    if (f.hva === 'base') return a.baseInnpass.some(x => x.by === f.by && x.land === f.land);
+    if (f.hva === 'felles') return a.fellesOkkupasjon.some(x => x.by === f.by && s(x.land) === s([f.fra, f.land]));
+    if (f.hva === 'sivil') return a.sivilInnpass.some(x => x.by === f.by && x.land === f.land);
+  }
+  return false;
+}
 function godkjenn(f) {
+  if (erGodkjent(f)) return;
   const a = app.avtaler;
   if (f.type === 'vennskap') a.vennskapsavtaler.push({ land:f.land, tekst:f.tekst });
   if (f.type === 'sfaere') a.interessesfaerer.push({ land:f.land, byer:f.byer, signert:f.signert });
