@@ -102,9 +102,11 @@
   .kart-tegn.lukket { padding:0; background:none; border:none; }
   .tegn-knapp { display:block; width:100%; text-align:left; background:rgba(239,231,214,.94); color:var(--blekk); border:1px solid var(--linje); padding:6px 10px; font-size:12.5px; min-height:32px; }
   .kart-tegn:not(.lukket) .tegn-knapp { border:none; background:none; padding:0 0 4px; min-height:0; font-weight:600; }
+  #ny-versjon { background:var(--varsel); color:#fff; padding:8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); font-size:14px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #ny-versjon button { background:#fff; color:var(--blekk); }
   #spill.uten-kart #kartflate { display:none; }
   #spill.uten-kart aside { width:100%; max-height:none; flex:1; border-left:none; border-top:none; }
-  #spill.uten-kart aside > * { max-width:720px; margin-left:auto; margin-right:auto; }
+  #spill.uten-kart aside { padding-left:max(16px, calc((100% - 720px) / 2)); padding-right:max(16px, calc((100% - 720px) / 2)); }
   .maal { cursor:pointer; }
   @keyframes puls { 0%{r:9} 50%{r:14} 100%{r:9} }
   .fremhev { animation:puls 1.2s infinite; }
@@ -171,6 +173,7 @@
       <p style="margin-top:10px;font-size:13px;color:var(--blekk-svak)">Storskjermen viser felleskartet, timeren og offentliggjøringen av ordrene — beregnet på prosjektor.</p>
     </div>
     <div id="start-feil" class="feilboks skjult"></div>
+    <div class="merke" id="versjon" style="margin-top:14px;text-align:right"></div>
   </div>
 </section>
 
@@ -1056,6 +1059,24 @@ setTimeout(function fyllIntro() {
 }, 0);
 document.getElementById('start-hjelp').addEventListener('click', () => visHjelp());
 document.getElementById('topp-hjelp').addEventListener('click', () => visHjelp());
+/* Versjonssjekk: nettlesere og GitHub Pages kan vise en gammel, mellomlagret utgave av siden.
+   Siden henter derfor seg selv utenom mellomlageret og sier fra hvis det finnes en nyere versjon. */
+const VERSJON = '12.11.2026-5';
+document.getElementById('versjon').textContent = 'Versjon ' + VERSJON;
+async function sjekkVersjon() {
+  if (!/^https?:/.test(location.protocol) || document.getElementById('ny-versjon')) return;
+  try {
+    const r = await fetch(location.pathname + '?sjekk=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const m = /const VERSJON = '([^']+)'/.exec(await r.text());
+    if (!m || m[1] === VERSJON) return;
+    const last = () => location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]));
+    if (!app.modus) return last();   // på startsiden: hent den nye versjonen med en gang
+    const stripe = el('div', { id:'ny-versjon', role:'status' }, 'Det finnes en ny versjon av spillet. Du må logge inn igjen med samme kode og navn etterpå.', el('button', { type:'button', onclick: last }, 'Hent ny versjon'));
+    document.body.prepend(stripe);
+  } catch (e) {}
+}
+setTimeout(sjekkVersjon, 500); setInterval(sjekkVersjon, 5 * 60 * 1000);
 /* Skjul/vis kartet – gir hele skjermen til panelet på små skjermer */
 let kartSkjult = false;
 function settKartSkjult(skjult) {
