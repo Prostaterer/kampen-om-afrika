@@ -99,6 +99,12 @@
   .kart-tegn label { display:flex; gap:6px; align-items:center; margin-top:4px; padding-top:4px; border-top:1px solid var(--linje); color:var(--afr); font-size:12px; cursor:pointer; }
   .kart-tegn input { width:auto; margin:0; }
   @media (max-width:820px) { .kart-tegn { font-size:11px; max-width:190px; } }
+  .kart-tegn.lukket { padding:0; background:none; border:none; }
+  .tegn-knapp { display:block; width:100%; text-align:left; background:rgba(239,231,214,.94); color:var(--blekk); border:1px solid var(--linje); padding:6px 10px; font-size:12.5px; min-height:32px; }
+  .kart-tegn:not(.lukket) .tegn-knapp { border:none; background:none; padding:0 0 4px; min-height:0; font-weight:600; }
+  #spill.uten-kart #kartflate { display:none; }
+  #spill.uten-kart aside { width:100%; max-height:none; flex:1; border-left:none; border-top:none; }
+  #spill.uten-kart aside > * { max-width:720px; margin-left:auto; margin-right:auto; }
   .maal { cursor:pointer; }
   @keyframes puls { 0%{r:9} 50%{r:14} 100%{r:9} }
   .fremhev { animation:puls 1.2s infinite; }
@@ -107,6 +113,7 @@
     #kartflate { min-height:46vh; }
     aside { width:100%; border-left:none; border-top:1px solid var(--linje); max-height:54vh; }
     #skjerm .avsl-tekst { font-size:18px; }
+    .status { left:8px; bottom:6px; padding:4px 8px; font-size:11.5px; max-width:70%; }
     .timer { font-size:18px; }
   }
 </style>
@@ -174,6 +181,7 @@
   <span class="merke" id="topp-rolle"></span>
   <span class="fase" id="topp-fase"></span>
   <span class="timer" id="topp-timer"></span>
+  <button class="sek hjelpknapp" type="button" id="topp-kart" aria-pressed="false">Skjul kart</button>
   <button class="sek hjelpknapp" type="button" id="topp-hjelp">Hjelp</button>
 </header>
 <main id="spill" class="skjult">
@@ -849,6 +857,9 @@ function blob(lat, lon, rLat, rLon) { // myk, litt ujevn ellipse
   }
   return glatt(pts);
 }
+// Tegnforklaringen starter minimert på små skjermer; valget huskes
+let tegnAapen = window.innerWidth > 820;
+try { const v = localStorage.getItem('kampen-tegn'); if (v) tegnAapen = v === 'aapen'; } catch (e) {}
 function tegnForklaring(svg) {
   const flate = svg.parentElement; if (!flate) return;
   let boks = flate.querySelector('.kart-tegn');
@@ -857,6 +868,13 @@ function tegnForklaring(svg) {
     flate.append(boks);
   }
   boks.innerHTML = '';
+  boks.classList.toggle('lukket', !tegnAapen);
+  const knapp = document.createElement('button'); knapp.type = 'button'; knapp.className = 'tegn-knapp';
+  knapp.setAttribute('aria-expanded', String(tegnAapen));
+  knapp.textContent = tegnAapen ? 'Tegnforklaring  ▴ skjul' : 'Tegnforklaring  ▾';
+  knapp.addEventListener('click', () => { tegnAapen = !tegnAapen; try { localStorage.setItem('kampen-tegn', tegnAapen ? 'aapen' : 'lukket'); } catch (e) {} document.querySelectorAll('#kart, #kart-skjerm').forEach(s => tegnForklaring(s)); });
+  boks.append(knapp);
+  if (!tegnAapen) return;
   const rad = (stil, tekst) => { const d = document.createElement('div'); d.innerHTML = `<span class="rute" style="${stil}"></span>`; d.append(tekst); boks.append(d); };
   rad('background:var(--blekk-svak);opacity:.55', 'Militær kontroll / base');
   rad('background:repeating-linear-gradient(45deg,var(--blekk-svak) 0 2px,transparent 2px 5px)', 'Økonomisk kontroll');
@@ -1038,6 +1056,16 @@ setTimeout(function fyllIntro() {
 }, 0);
 document.getElementById('start-hjelp').addEventListener('click', () => visHjelp());
 document.getElementById('topp-hjelp').addEventListener('click', () => visHjelp());
+/* Skjul/vis kartet – gir hele skjermen til panelet på små skjermer */
+let kartSkjult = false;
+function settKartSkjult(skjult) {
+  kartSkjult = skjult;
+  document.getElementById('spill').classList.toggle('uten-kart', skjult);
+  const k = document.getElementById('topp-kart'); k.textContent = skjult ? 'Vis kart' : 'Skjul kart'; k.setAttribute('aria-pressed', String(skjult));
+  try { localStorage.setItem('kampen-kart-skjult', skjult ? 'ja' : 'nei'); } catch (e) {}
+}
+try { if (localStorage.getItem('kampen-kart-skjult') === 'ja') settKartSkjult(true); } catch (e) {}
+document.getElementById('topp-kart').addEventListener('click', () => settKartSkjult(!kartSkjult));
 
 $('#nytt-spill').addEventListener('click', async () => {
   const pin = $('#ny-pin').value.trim();
@@ -1113,6 +1141,7 @@ async function startSpill(modus, kode, meta, rolleId) {
   vis('#start', false);
   vis('#topp', true);
   vis('#spill', modus !== 'skjerm');
+  vis('#topp-kart', modus !== 'skjerm');
   vis('#skjerm', modus === 'skjerm');
   $('#topp-kode').textContent = kode;
   $('#topp-rolle').textContent = modus === 'laerer' ? 'Lærer / spilleder' : modus === 'skjerm' ? 'Storskjerm' : `${app.rolle.navn} · ${app.navn}`;
@@ -1265,7 +1294,7 @@ function renderElev() {
   tegnKart($('#kart'), { tilstand:t, egneEnheter:egne, valgtEnhet:valgt, gyldige, paaKlikk, piler,
     paaEnhet: id => { app.valgtEnhet = id; app.velgerMaalFor = null; renderElev(); } });
   $('#kart-status').textContent = laast ? (m.fase === 'forhandling' ? 'Forhandlingsfase: snakk med de andre. Ordre kan skrives i neste fase.' : m.fase === 'avsloering' ? 'Ordrene offentliggjøres – følg med på storskjermen.' : m.fase === 'lobby' ? 'Venter på at læreren starter spillet.' : '')
-    : (gyldige ? 'Klikk på målet i kartet (gule byer/havområder).' : 'Klikk på en av dine enheter i kartet, eller bruk listen til høyre.');
+    : (gyldige ? 'Klikk på målet i kartet (gule byer/havområder).' : 'Klikk på en av dine enheter i kartet, eller bruk listen i panelet.');
 
   // Tegnforklaring
   panel.append(el('div', { style:'font-size:12px;color:var(--blekk-svak);margin-bottom:8px;display:flex;gap:14px;align-items:center' },
