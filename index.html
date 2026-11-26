@@ -184,6 +184,7 @@
   <span class="merke" id="topp-rolle"></span>
   <span class="fase" id="topp-fase"></span>
   <span class="timer" id="topp-timer"></span>
+  <span class="merke" id="topp-versjon" style="font-size:10.5px"></span>
   <button class="sek hjelpknapp" type="button" id="topp-kart" aria-pressed="false">Skjul kart</button>
   <button class="sek hjelpknapp" type="button" id="topp-hjelp">Hjelp</button>
 </header>
@@ -1061,8 +1062,9 @@ document.getElementById('start-hjelp').addEventListener('click', () => visHjelp(
 document.getElementById('topp-hjelp').addEventListener('click', () => visHjelp());
 /* Versjonssjekk: nettlesere og GitHub Pages kan vise en gammel, mellomlagret utgave av siden.
    Siden henter derfor seg selv utenom mellomlageret og sier fra hvis det finnes en nyere versjon. */
-const VERSJON = '26.11.2026-1';
+const VERSJON = '26.11.2026-2';
 document.getElementById('versjon').textContent = 'Versjon ' + VERSJON;
+document.getElementById('topp-versjon').textContent = 'v. ' + VERSJON;
 async function sjekkVersjon() {
   if (!/^https?:/.test(location.protocol) || document.getElementById('ny-versjon')) return;
   try {
@@ -1241,8 +1243,14 @@ async function oppfriskEn(tvang) {
         const avtVersjon = avtaleVersjon;
         let avtaler = (await hent(K.avtaler(app.kode, meta.runde))) || tomAvtaler();
         // Har læreren godkjent eller fjernet noe mens vi hentet, eller pågår en lagring, gjelder den lokale lista
-        if (avtVersjon !== avtaleVersjon || avtaleLagrer || !app.avtaler) avtaler = app.avtaler || avtaler;
-        else if (JSON.stringify(avtaler) === JSON.stringify(app.avtaler)) avtaler = app.avtaler;
+        if (avtVersjon !== avtaleVersjon || avtaleLagrer) avtaler = app.avtaler || avtaler;
+        else if (app.avtaler?._t && app.avtaler._runde === meta.runde && (avtaler._t || 0) < app.avtaler._t) {
+          // Databasen har en eldre liste enn denne maskinen: lagringen kom ikke fram. Behold vår, og prøv igjen.
+          avtaler = app.avtaler; app.avtalerUlagret = true; lagreAvtaler(true);
+        } else {
+          if ((avtaler._t || 0) >= (app.avtaler?._t || 0) && app.avtalerUlagret) { app.avtalerUlagret = false; noeNytt = true; }
+          if (JSON.stringify(avtaler) === JSON.stringify(app.avtaler)) avtaler = app.avtaler;
+        }
         if (JSON.stringify([ordrer, alleForslag, avtaler]) !== JSON.stringify([app.ordrer, app.alleForslag, app.avtaler])) noeNytt = true;
         app.ordrer = ordrer; app.alleForslag = alleForslag; app.avtaler = avtaler;
       }
@@ -1678,6 +1686,8 @@ function renderLaerer() {
     panel.append(el('h2', {}, 'Avtaler denne runden'));
     panel.append(el('div', { style:'font-size:12.5px;color:var(--blekk-svak)' }, 'Godkjenn forslag fra diplomatene når begge parter har sendt inn det samme. Godkjente avtaler gjelder når runden avgjøres.'));
     const a = app.avtaler;
+    if (app.avtalerUlagret) panel.append(el('div', { class:'feilboks' }, `Avtalene er ikke lagret i databasen ennå (${app.avtalerFeil || 'venter'}). Godkjenningen gjelder likevel på denne maskinen, og siden prøver igjen automatisk. `,
+      el('button', { class:'liten', onclick: () => lagreAvtaler(true) }, 'Prøv nå')));
     const godkjente = [];
     a.vennskapsavtaler.forEach((x,i) => godkjente.push([`Vennskapsavtale ${x.land.map(id=>LAND[id].navn).join(' – ')}`, () => fjernAvtale('vennskapsavtaler', x)]));
     a.interessesfaerer.forEach((x,i) => godkjente.push([`Interessesfære ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => fjernAvtale('interessesfaerer', x)]));
@@ -1778,13 +1788,17 @@ function fjernAvtale(liste, x) {
   const l = app.avtaler?.[liste]; if (!l) return;
   const i = l.findIndex(y => JSON.stringify(y) === JSON.stringify(x)); if (i >= 0) l.splice(i, 1);
 }
-async function lagreAvtaler() {
+async function lagreAvtaler(nyttForsok) {
+  if (nyttForsok && avtaleLagrer) return;
   avtaleVersjon++; avtaleLagrer++;
   const runde = app.meta.runde;
+  if (!nyttForsok) { app.avtaler._t = Date.now(); app.avtaler._runde = runde; app.avtaler._av = app.klient; }
   renderLaerer();                       // vis endringen med en gang
   let ok = false;
-  try { ok = await lagre(K.avtaler(app.kode, runde), app.avtaler); } finally { avtaleLagrer--; avtaleVersjon++; }
-  if (!ok) { renderLaerer(); document.getElementById('panel').prepend(el('div', { class:'feilboks' }, 'Endringen i avtalene ble ikke lagret i databasen. Sjekk nettforbindelsen og trykk på nytt.')); }
+  try { ok = await lagre(K.avtaler(app.kode, runde), app.avtaler); } catch (e) { console.error(e); } finally { avtaleLagrer--; avtaleVersjon++; }
+  const foer = !!app.avtalerUlagret; app.avtalerUlagret = !ok; app.avtalerFeil = ok ? '' : (sisteFeilTekst || 'ingen kontakt');
+  if (foer !== app.avtalerUlagret || !ok) renderLaerer();
+  return ok;
 }
 /* To forslag gjelder samme avtale (uavhengig av hvem som sendte dem inn) */
 function avtaleNokkel(f) {
