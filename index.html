@@ -1061,7 +1061,7 @@ document.getElementById('start-hjelp').addEventListener('click', () => visHjelp(
 document.getElementById('topp-hjelp').addEventListener('click', () => visHjelp());
 /* Versjonssjekk: nettlesere og GitHub Pages kan vise en gammel, mellomlagret utgave av siden.
    Siden henter derfor seg selv utenom mellomlageret og sier fra hvis det finnes en nyere versjon. */
-const VERSJON = '12.11.2026-5';
+const VERSJON = '26.11.2026-1';
 document.getElementById('versjon').textContent = 'Versjon ' + VERSJON;
 async function sjekkVersjon() {
   if (!/^https?:/.test(location.protocol) || document.getElementById('ny-versjon')) return;
@@ -1238,7 +1238,11 @@ async function oppfriskEn(tvang) {
         for (const k of await nokler(K.ordrer(app.kode, meta.runde))) { const d = await hent(k); if (d) ordrer[k.split(':').pop()] = d; }
         const alleForslag = {};
         for (const l of SPILLDATA.land) alleForslag[l.id] = (await hent(K.forslag(app.kode, meta.runde, l.id))) || [];
-        const avtaler = (await hent(K.avtaler(app.kode, meta.runde))) || tomAvtaler();
+        const avtVersjon = avtaleVersjon;
+        let avtaler = (await hent(K.avtaler(app.kode, meta.runde))) || tomAvtaler();
+        // Har læreren godkjent eller fjernet noe mens vi hentet, eller pågår en lagring, gjelder den lokale lista
+        if (avtVersjon !== avtaleVersjon || avtaleLagrer || !app.avtaler) avtaler = app.avtaler || avtaler;
+        else if (JSON.stringify(avtaler) === JSON.stringify(app.avtaler)) avtaler = app.avtaler;
         if (JSON.stringify([ordrer, alleForslag, avtaler]) !== JSON.stringify([app.ordrer, app.alleForslag, app.avtaler])) noeNytt = true;
         app.ordrer = ordrer; app.alleForslag = alleForslag; app.avtaler = avtaler;
       }
@@ -1675,18 +1679,18 @@ function renderLaerer() {
     panel.append(el('div', { style:'font-size:12.5px;color:var(--blekk-svak)' }, 'Godkjenn forslag fra diplomatene når begge parter har sendt inn det samme. Godkjente avtaler gjelder når runden avgjøres.'));
     const a = app.avtaler;
     const godkjente = [];
-    a.vennskapsavtaler.forEach((x,i) => godkjente.push([`Vennskapsavtale ${x.land.map(id=>LAND[id].navn).join(' – ')}`, () => a.vennskapsavtaler.splice(i,1)]));
-    a.interessesfaerer.forEach((x,i) => godkjente.push([`Interessesfære ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => a.interessesfaerer.splice(i,1)]));
-    a.kolonier.forEach((x,i) => godkjente.push([`Koloni ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => a.kolonier.splice(i,1)]));
-    a.suezSamtykke.forEach((x,i) => godkjente.push([`Suez-samtykke: ${LAND[x].navn}`, () => a.suezSamtykke.splice(i,1)]));
-    a.baseInnpass.forEach((x,i) => godkjente.push([`Innpass i ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => a.baseInnpass.splice(i,1)]));
-    a.fellesOkkupasjon.forEach((x,i) => godkjente.push([`Felles okkupasjon ${stedNavn(x.by)}: ${x.land.map(id=>LAND[id].navn).join(' + ')}`, () => a.fellesOkkupasjon.splice(i,1)]));
-    a.sivilInnpass.forEach((x,i) => godkjente.push([`Sivilt innpass ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => a.sivilInnpass.splice(i,1)]));
-    if (godkjente.length) panel.append(el('div', { class:'kort' }, el('strong', {}, 'Godkjent:'), ...godkjente.map(([tekst, fjern]) => el('div', { class:'rad', style:'margin-top:4px' }, el('span', { style:'flex:3' }, tekst), el('button', { class:'liten sek', style:'flex:0', onclick: async () => { fjern(); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Fjern')))));
+    a.vennskapsavtaler.forEach((x,i) => godkjente.push([`Vennskapsavtale ${x.land.map(id=>LAND[id].navn).join(' – ')}`, () => fjernAvtale('vennskapsavtaler', x)]));
+    a.interessesfaerer.forEach((x,i) => godkjente.push([`Interessesfære ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => fjernAvtale('interessesfaerer', x)]));
+    a.kolonier.forEach((x,i) => godkjente.push([`Koloni ${x.byer.map(stedNavn).join(' + ')} → ${LAND[x.land].navn}`, () => fjernAvtale('kolonier', x)]));
+    a.suezSamtykke.forEach((x,i) => godkjente.push([`Suez-samtykke: ${LAND[x].navn}`, () => fjernAvtale('suezSamtykke', x)]));
+    a.baseInnpass.forEach((x,i) => godkjente.push([`Innpass i ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => fjernAvtale('baseInnpass', x)]));
+    a.fellesOkkupasjon.forEach((x,i) => godkjente.push([`Felles okkupasjon ${stedNavn(x.by)}: ${x.land.map(id=>LAND[id].navn).join(' + ')}`, () => fjernAvtale('fellesOkkupasjon', x)]));
+    a.sivilInnpass.forEach((x,i) => godkjente.push([`Sivilt innpass ${stedNavn(x.by)}: ${LAND[x.land].navn}`, () => fjernAvtale('sivilInnpass', x)]));
+    if (godkjente.length) panel.append(el('div', { class:'kort' }, el('strong', {}, 'Godkjent:'), ...godkjente.map(([tekst, fjern]) => el('div', { class:'rad', style:'margin-top:4px' }, el('span', { style:'flex:3' }, tekst), el('button', { class:'liten sek', style:'flex:0', onclick: async () => { fjern(); await lagreAvtaler(); } }, 'Fjern')))));
     let antallVenter = 0;
     SPILLDATA.land.forEach(l => (app.alleForslag?.[l.id]||[]).filter(f => !erGodkjent(f)).forEach(f => { antallVenter++; const motpart = SPILLDATA.land.some(l2 => l2.id !== l.id && (app.alleForslag?.[l2.id]||[]).some(f2 => sammeAvtale(f, f2))); panel.append(el('div', { class:`kort ${KORT[l.id]}` },
       el('div', { class:'merke' }, `Forslag fra ${l.navn}${motpart ? ' · også sendt inn av motparten' : ''}`), el('div', {}, forslagTekst(f)),
-      el('button', { class:'liten', style:'margin-top:6px', onclick: async () => { godkjenn(f); await lagre(K.avtaler(app.kode, m.runde), a); renderLaerer(); } }, 'Godkjenn'))); }));
+      el('button', { class:'liten', style:'margin-top:6px', onclick: async () => { godkjenn(f); await lagreAvtaler(); } }, 'Godkjenn'))); }));
     if (!antallVenter) panel.append(el('div', { class:'merke', style:'padding:6px 0' }, 'Ingen forslag venter på godkjenning.'));
 
     const antall = Object.keys(app.ordrer).length, forventet = ROLLER.filter(r => r.type!=='diplomat').length;
@@ -1766,6 +1770,21 @@ function bonusPanel() {
         el('input', { type:'number', min:0, max:100, value:inn[id].poeng, style:'max-width:80px', onchange: ev => oppd({ poeng: Math.max(0, Math.min(100, +ev.target.value || 0)) }) }))));
   });
   return boks;
+}
+/* Lærerens avtaleliste: endres lokalt først og lagres så. Telleren hindrer at en pågående
+   oppdatering fra databasen legger tilbake den gamle lista. */
+let avtaleVersjon = 0, avtaleLagrer = 0;
+function fjernAvtale(liste, x) {
+  const l = app.avtaler?.[liste]; if (!l) return;
+  const i = l.findIndex(y => JSON.stringify(y) === JSON.stringify(x)); if (i >= 0) l.splice(i, 1);
+}
+async function lagreAvtaler() {
+  avtaleVersjon++; avtaleLagrer++;
+  const runde = app.meta.runde;
+  renderLaerer();                       // vis endringen med en gang
+  let ok = false;
+  try { ok = await lagre(K.avtaler(app.kode, runde), app.avtaler); } finally { avtaleLagrer--; avtaleVersjon++; }
+  if (!ok) { renderLaerer(); document.getElementById('panel').prepend(el('div', { class:'feilboks' }, 'Endringen i avtalene ble ikke lagret i databasen. Sjekk nettforbindelsen og trykk på nytt.')); }
 }
 /* To forslag gjelder samme avtale (uavhengig av hvem som sendte dem inn) */
 function avtaleNokkel(f) {
